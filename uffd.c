@@ -160,11 +160,11 @@ int uffd_init() {
     unsigned long addrs[2];
     get_code_addrs(addrs); // Get start and end addresses of the code section
     //printf("%lx, %lx\n", addrs[0], addrs[1]);
-    char *addr = mmap(NULL, 4096, PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    char *addr = mmap(NULL, page_size, PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     printf("%lx\n", addr);
 
     uffdio_register.range.start = (unsigned long)addr;
-    uffdio_register.range.len = 4096;
+    uffdio_register.range.len = page_size;
     uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
     if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
         errExit("ioctl-UFFDIO_REGISTER");
