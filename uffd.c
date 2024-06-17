@@ -131,6 +131,24 @@ void get_code_addrs(unsigned long addrs[]) {
     fclose(proc_maps);
 }
 
+void *fBacked2Anon(unsigned long addrs[]) {
+    size_t len = (size_t)(addrs[1] - addrs[0]);
+
+    // Copy code pages to new VMA
+    void *new_vma = mmap(NULL, len, PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    memcpy(new_vma, (void *)addrs[0], len);
+
+    // Map anonymous VMA in place of old VMA
+    void *old_vma = mmap((void *)addrs[0], len, PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    
+    // Copy back code pages to old VMA
+    memcpy(old_vma, new_vma, len);
+    munmap(new_vma, len);
+    return old_vma;
+}
+
 // Tell the loader to run this function once the library is loaded
 __attribute__((constructor))
 int uffd_init() {
@@ -159,12 +177,11 @@ int uffd_init() {
     
     unsigned long addrs[2];
     get_code_addrs(addrs); // Get start and end addresses of the code section
-    //printf("%lx, %lx\n", addrs[0], addrs[1]);
-    char *addr = mmap(NULL, page_size, PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    printf("%lx\n", addr);
+    printf("%d: %lx, %lx\n", getpid(), addrs[0], addrs[1]);
+    void *old_vma = fBacked2Anon(addrs);
 
-    uffdio_register.range.start = (unsigned long)addr;
-    uffdio_register.range.len = page_size;
+    uffdio_register.range.start = (unsigned long)old_vma;
+    uffdio_register.range.len = addrs[1] - addrs[0];
     uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
     if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
         errExit("ioctl-UFFDIO_REGISTER");
