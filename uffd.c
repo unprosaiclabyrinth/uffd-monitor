@@ -146,6 +146,7 @@ void *fBacked2Anon(unsigned long addrs[]) {
     // Copy back code pages to old VMA
     memcpy(old_vma, new_vma, len);
     munmap(new_vma, len);
+    printf("%lx, %lx, %lx\n", new_vma, old_vma, addrs[0]);
     return old_vma;
 }
 
@@ -154,10 +155,6 @@ __attribute__((constructor))
 int uffd_init() {
     long uffd;          /* userfaultfd file descriptor */
     pthread_t thr;      /* ID of thread that handles page faults */
-    struct uffdio_api uffdio_api;
-    struct uffdio_register uffdio_register;
-    int s;
-
     page_size = sysconf(_SC_PAGE_SIZE);
 
     /* Create and enable userfaultfd object */
@@ -166,8 +163,10 @@ int uffd_init() {
     if (uffd == -1)
         errExit("userfaultfd");
 
-    uffdio_api.api = UFFD_API;
-    uffdio_api.features = 0;
+    struct uffdio_api uffdio_api = {
+        .api = UFFD_API,
+        .features = 0
+    };
     if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
         errExit("ioctl-UFFDIO_API");
 
@@ -180,15 +179,19 @@ int uffd_init() {
     printf("%d: %lx, %lx\n", getpid(), addrs[0], addrs[1]);
     void *old_vma = fBacked2Anon(addrs);
 
-    uffdio_register.range.start = (unsigned long)old_vma;
-    uffdio_register.range.len = addrs[1] - addrs[0];
-    uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
+    struct uffdio_register uffdio_register = {
+        .range = {
+            .start = (unsigned long)old_vma,
+            .len = addrs[1] - addrs[0]
+        },
+        .mode = UFFDIO_REGISTER_MODE_MISSING
+    };
     if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
         errExit("ioctl-UFFDIO_REGISTER");
 
     /* Create a thread that will process the userfaultfd events */
 
-    s = pthread_create(&thr, NULL, fault_handler_thread, (void *) uffd);
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *) uffd);
     if (s != 0) {
         errno = s;
         errExit("pthread_create");
