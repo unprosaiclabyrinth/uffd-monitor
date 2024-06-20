@@ -30,7 +30,6 @@ static void *fault_handler_thread(void *arg) {
     static int fault_cnt = 0;     /* Number of faults so far handled */
     long uffd;                    /* userfaultfd file descriptor */
     static char *page = NULL;
-    struct uffdio_copy uffdio_copy;
     ssize_t nread;
 
     uffd = (long) arg;
@@ -96,16 +95,17 @@ static void *fault_handler_thread(void *arg) {
         memset(page, 'A' + fault_cnt % 20, page_size);
         fault_cnt++;
 
-        uffdio_copy.src = (unsigned long) page;
+        struct uffdio_copy uffdio_copy = {
+            .src = (unsigned long)page,
 
-        /* We need to handle page faults in units of pages(!).
-            So, round faulting address down to page boundary */
+            /* We need to handle page faults in units of pages(!).
+               So, round faulting address down to page boundary */
 
-        uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
-                                            ~(page_size - 1);
-        uffdio_copy.len = page_size;
-        uffdio_copy.mode = 0;
-        uffdio_copy.copy = 0;
+            .dst = (unsigned long)msg.arg.pagefault.address & ~(page_size - 1),
+            .len = page_size,
+            .mode = 0,
+            .copy = 0
+        };
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
@@ -140,6 +140,7 @@ void *fBacked2Anon(unsigned long addrs[]) {
     memcpy(new_vma, (void *)addrs[0], len);
 
     // Map anonymous VMA in place of old VMA
+    munmap((void *)addrs[0], len); // Unmap the unavailable code VMA first
     void *old_vma = mmap((void *)addrs[0], len, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     
@@ -181,7 +182,7 @@ int uffd_init() {
 
     struct uffdio_register uffdio_register = {
         .range = {
-            .start = (unsigned long)old_vma,
+            .start = addrs[0],
             .len = addrs[1] - addrs[0]
         },
         .mode = UFFDIO_REGISTER_MODE_MISSING
