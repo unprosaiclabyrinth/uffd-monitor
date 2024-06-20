@@ -129,6 +129,10 @@ void get_code_addrs(unsigned long addrs[]) {
     fgets(line, sizeof(line), proc_maps); // read line 2 (.text)
     sscanf(line, "%lx-%lx", &addrs[0], &addrs[1]);
     fclose(proc_maps);
+
+    printf("                PID: %d\n", getpid());
+    printf("Code VMA start addr: %#lx\n", addrs[0]);
+    printf("  Code VMA end addr: %#lx\n", addrs[1]);
 }
 
 void *fBacked2Anon(unsigned long addrs[]) {
@@ -147,7 +151,9 @@ void *fBacked2Anon(unsigned long addrs[]) {
     // Copy back code pages to old VMA
     memcpy(old_vma, new_vma, len);
     munmap(new_vma, len);
-    printf("%lx, %lx, %lx\n", new_vma, old_vma, addrs[0]);
+
+    printf("       New VMA addr: %p\n", new_vma);
+    printf("       Old VMA addr: %p\n", old_vma);
     return old_vma;
 }
 
@@ -177,18 +183,18 @@ int uffd_init() {
     
     unsigned long addrs[2];
     get_code_addrs(addrs); // Get start and end addresses of the code section
-    printf("%d: %lx, %lx\n", getpid(), addrs[0], addrs[1]);
     void *old_vma = fBacked2Anon(addrs);
 
     struct uffdio_register uffdio_register = {
         .range = {
-            .start = addrs[0],
+            .start = (unsigned long)old_vma,
             .len = addrs[1] - addrs[0]
         },
         .mode = UFFDIO_REGISTER_MODE_MISSING
     };
     if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
         errExit("ioctl-UFFDIO_REGISTER");
+
 
     /* Create a thread that will process the userfaultfd events */
 
@@ -198,7 +204,10 @@ int uffd_init() {
         errExit("pthread_create");
     }
 
+    printf(" pthread_create ret: %d\n", s);
+
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */
+    printf("\n");
     return 0;
 }
