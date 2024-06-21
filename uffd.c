@@ -21,6 +21,10 @@
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
 
+#include <signal.h>
+#include <execinfo.h>
+#include <ucontext.h>
+
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 static int page_size;
@@ -32,7 +36,7 @@ static void *fault_handler_thread(void *arg) {
     static char *page = NULL;
     ssize_t nread;
 
-    uffd = (long) arg;
+    uffd = (long)arg;
 
     /* Create a page that will be copied into the faulting region */
 
@@ -50,10 +54,11 @@ static void *fault_handler_thread(void *arg) {
 
         /* See what poll() tells us about the userfaultfd */
 
-        struct pollfd pollfd;
         int nready;
-        pollfd.fd = uffd;
-        pollfd.events = POLLIN;
+        struct pollfd pollfd = {
+            .fd = uffd,
+            .events = POLLIN
+        };
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
@@ -157,12 +162,37 @@ void *fBacked2Anon(unsigned long addrs[]) {
     return old_vma;
 }
 
+void sigsegv_handler(int sig, siginfo_t *si, void *unused) {
+    printf("Caught SIGSEGV at address: %p\n", si->si_addr);
+
+    // Optionally, print the stack trace
+    void *buffer[30];
+    int nptrs = backtrace(buffer, 30);
+    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+
+    exit(EXIT_FAILURE);
+}
+
+void setup_sigsegv_handler() {
+    struct sigaction sa = {
+        .sa_flags = SA_SIGINFO,
+        .sa_sigaction = sigsegv_handler
+    };
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+}
+
 // Tell the loader to run this function once the library is loaded
 __attribute__((constructor))
 int uffd_init() {
     long uffd;          /* userfaultfd file descriptor */
     pthread_t thr;      /* ID of thread that handles page faults */
     page_size = sysconf(_SC_PAGE_SIZE);
+    setup_sigsegv_handler();
 
     /* Create and enable userfaultfd object */
 
@@ -195,15 +225,13 @@ int uffd_init() {
     if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
         errExit("ioctl-UFFDIO_REGISTER");
 
-
     /* Create a thread that will process the userfaultfd events */
 
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *) uffd);
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)uffd);
     if (s != 0) {
         errno = s;
         errExit("pthread_create");
     }
-
     printf(" pthread_create ret: %d\n", s);
 
     /* Block for userfaultfd events on the separate created thread,
