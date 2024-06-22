@@ -160,7 +160,6 @@ void *fBacked2Anon(unsigned long addrs[]) {
 
     printf("       New VMA addr: %p\n", new_vma);
     printf("       Old VMA addr: %p\n", old_vma);
-
     // Drop all code pages
     printf("        madvise ret: %d\n", madvise(old_vma, len, MADV_DONTNEED));
 
