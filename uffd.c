@@ -153,7 +153,7 @@ void *fBacked2Anon(unsigned long addrs[]) {
     void *old_vma = mmap((void *)addrs[0], len, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     
-    // Copy back code pages to old VMA
+    // Copy code pages back to old VMA
     memcpy(old_vma, new_vma, len);
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
     munmap(new_vma, len);
