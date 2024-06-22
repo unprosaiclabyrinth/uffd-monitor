@@ -155,10 +155,15 @@ void *fBacked2Anon(unsigned long addrs[]) {
     
     // Copy back code pages to old VMA
     memcpy(old_vma, new_vma, len);
+    mprotect(old_vma, len, PROT_READ | PROT_EXEC);
     munmap(new_vma, len);
 
     printf("       New VMA addr: %p\n", new_vma);
     printf("       Old VMA addr: %p\n", old_vma);
+
+    // Drop all code pages
+    printf("        madvise ret: %d\n", madvise(old_vma, len, MADV_DONTNEED));
+
     return old_vma;
 }
 
