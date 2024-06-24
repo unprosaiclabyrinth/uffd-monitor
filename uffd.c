@@ -90,8 +90,8 @@ static void *fault_handler_thread(void *arg) {
         /* Display info about the page-fault event */
 
         printf("    UFFD_EVENT_PAGEFAULT event: ");
-        printf("flags = %"PRIx64"; ", msg.arg.pagefault.flags);
-        printf("address = %"PRIx64"\n", msg.arg.pagefault.address);
+        printf("flags = %#llx; ", msg.arg.pagefault.flags);
+        printf("address = %#llx\n", msg.arg.pagefault.address);
 
         /* Copy the page pointed to by 'page' into the faulting
             region. Vary the contents that are copied in, so that it
@@ -114,7 +114,7 @@ static void *fault_handler_thread(void *arg) {
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
-        printf("        (uffdio_copy.copy returned %"PRId64")\n",
+        printf("        (uffdio_copy.copy returned %lld)\n",
                 uffdio_copy.copy);
     }
 }
@@ -137,7 +137,7 @@ void get_code_addrs(unsigned long addrs[]) {
     printf("  Code VMA end addr: %#lx\n", addrs[1]);
 }
 
-void *fBacked2AnonAndDropped(unsigned long addrs[]) {
+void *file_backed_to_dontneed_anon(unsigned long addrs[]) {
     size_t len = (size_t)(addrs[1] - addrs[0]);
 
     // Copy code pages to new VMA
@@ -163,7 +163,8 @@ void *fBacked2AnonAndDropped(unsigned long addrs[]) {
     return old_vma;
 }
 
-void sigsegv_handler(int sig, siginfo_t *si, void *unused) {
+void sigsegv_handler(int sig __attribute__((unused)), siginfo_t *si,
+                     void *unused __attribute__((unused))) {
     printf("Caught SIGSEGV at address: %p\n", si->si_addr);
 
     // Optionally, print the stack trace
@@ -214,7 +215,7 @@ int uffd_init() {
     
     unsigned long addrs[2];
     get_code_addrs(addrs); // Get start and end addresses of the code section
-    void *old_vma = fBacked2AnonAndDropped(addrs);
+    void *old_vma = file_backed_to_dontneed_anon(addrs);
 
     struct uffdio_register uffdio_register = {
         .range = {
