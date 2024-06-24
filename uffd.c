@@ -120,10 +120,7 @@ static void *fault_handler_thread(void *arg) {
 }
 
 void get_code_addrs(unsigned long addrs[]) {
-    char filename[128];
-    snprintf(filename, sizeof(filename), "/proc/%d/maps", getpid());
-
-    FILE *proc_maps = fopen(filename, "r");
+    FILE *proc_maps = fopen("/proc/self/maps", "r");
     if (proc_maps == NULL) {
         perror("fopen");
         exit(EXIT_FAILURE);
