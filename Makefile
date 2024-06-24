@@ -1,5 +1,12 @@
 CXX = gcc
-CXXFLAGS = -Wall -shared -fPIC -g
+CXXFLAGS = -Wall -Wextra -shared -fPIC -g
 
-libuffd.so: uffd.c
-	$(CXX) $(CXXFLAGS) -o $@ $^
+all: libuffd.so
+
+libuffd.so: uffd.c clean
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+clean:
+	rm -f libuffd.so
+
+.PHONY: clean
