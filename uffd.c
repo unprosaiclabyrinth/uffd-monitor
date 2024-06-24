@@ -1,4 +1,4 @@
-// _GNU_SOURCE enables the RLD_NEXT handle used in dysm
+// _GNU_SOURCE enables the RTLD_NEXT handle used in dlysm
 #define _GNU_SOURCE
 
 // Provide the prototypes for dlysm
@@ -137,7 +137,7 @@ void get_code_addrs(unsigned long addrs[]) {
     printf("  Code VMA end addr: %#lx\n", addrs[1]);
 }
 
-void *fBacked2Anon(unsigned long addrs[]) {
+void *fBacked2AnonAndDropped(unsigned long addrs[]) {
     size_t len = (size_t)(addrs[1] - addrs[0]);
 
     // Copy code pages to new VMA
@@ -214,7 +214,7 @@ int uffd_init() {
     
     unsigned long addrs[2];
     get_code_addrs(addrs); // Get start and end addresses of the code section
-    void *old_vma = fBacked2Anon(addrs);
+    void *old_vma = fBacked2AnonAndDropped(addrs);
 
     struct uffdio_register uffdio_register = {
         .range = {
