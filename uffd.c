@@ -29,14 +29,14 @@
 
 static int page_size;
 
-static void *fault_handler_thread(void *arg) {
-    static struct uffd_msg msg;   /* Data read from userfaultfd */
-    static int fault_cnt = 0;     /* Number of faults so far handled */
-    long uffd;                    /* userfaultfd file descriptor */
+// TODO: mmap page from executable
+static void *fault_handler_thread(void *args) {
+    static struct uffd_msg msg;    /* Data read from userfaultfd */
+    static int fault_cnt = 0;      /* Number of faults so far handled */
+    long uffd = ((long *)args)[0]; /* userfaultfd file descriptor */
+    __attribute__((unused)) long code_offset = ((long *)args)[1];
     static char *page = NULL;
     ssize_t nread;
-
-    uffd = (long)arg;
 
     /* Create a page that will be copied into the faulting region */
 
@@ -51,7 +51,6 @@ static void *fault_handler_thread(void *arg) {
         file descriptor */
 
     while (1) {
-
         /* See what poll() tells us about the userfaultfd */
 
         int nready;
@@ -62,7 +61,6 @@ static void *fault_handler_thread(void *arg) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        
         printf("\nfault_handler_thread():\n");
         printf("    poll() returns: nready = %d; "
                 "POLLIN = %d; POLLERR = %d\n", nready,
@@ -75,9 +73,7 @@ static void *fault_handler_thread(void *arg) {
         if (nread == 0) {
             printf("EOF on userfaultfd!\n");
             exit(EXIT_FAILURE);
-        }
-
-        if (nread == -1)
+        } else if (nread == -1)
             errExit("read");
 
         /* We expect only one kind of event; verify that assumption */
@@ -119,7 +115,7 @@ static void *fault_handler_thread(void *arg) {
     }
 }
 
-void get_code_addrs(unsigned long addrs[]) {
+void get_code_addrs_and_offset(unsigned long addrs[], long *code_offset) {
     FILE *proc_maps = fopen("/proc/self/maps", "r");
     if (proc_maps == NULL) {
         perror("fopen");
@@ -129,12 +125,13 @@ void get_code_addrs(unsigned long addrs[]) {
     char line[256];
     fgets(line, sizeof(line), proc_maps); // read line 1
     fgets(line, sizeof(line), proc_maps); // read line 2 (.text)
-    sscanf(line, "%lx-%lx", &addrs[0], &addrs[1]);
+    sscanf(line, "%lx-%lx r-xp %lx", &addrs[0], &addrs[1], code_offset);
     fclose(proc_maps);
 
     printf("                PID: %d\n", getpid());
     printf("Code VMA start addr: %#lx\n", addrs[0]);
     printf("  Code VMA end addr: %#lx\n", addrs[1]);
+    printf("             Offset: %ld\n", *code_offset);
 }
 
 void *file_backed_to_dontneed_anon(unsigned long addrs[]) {
@@ -155,6 +152,7 @@ void *file_backed_to_dontneed_anon(unsigned long addrs[]) {
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
     munmap(new_vma, len);
 
+    printf("Code section length: %ld\n", len);
     printf("       New VMA addr: %p\n", new_vma);
     printf("       Old VMA addr: %p\n", old_vma);
     // Drop all code pages
@@ -214,7 +212,8 @@ int uffd_init() {
        (i.e., pages that have not yet been faulted in). */
     
     unsigned long addrs[2];
-    get_code_addrs(addrs); // Get start and end addresses of the code section
+    long code_offset;
+    get_code_addrs_and_offset(addrs, &code_offset);
     void *old_vma = file_backed_to_dontneed_anon(addrs);
 
     struct uffdio_register uffdio_register = {
@@ -229,7 +228,8 @@ int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)uffd);
+    long args[2] = {uffd, code_offset};
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)args);
     if (s != 0) {
         errno = s;
         errExit("pthread_create");
@@ -238,6 +238,5 @@ int uffd_init() {
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */
-    printf("\n");
     return 0;
 }
