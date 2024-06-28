@@ -1,6 +1,6 @@
 /**
  * t01.c: A super simple I/O test case.
- **/
+ * */
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>

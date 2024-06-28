@@ -3,7 +3,7 @@
  * Usage:
  *  [server]$ ./t03
  *  [client]$ nc localhost 5000
- **/
+ * */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
