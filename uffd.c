@@ -36,7 +36,7 @@ static void *fault_handler_thread(void *args) {
     long uffd = ((long *)args)[0]; /* userfaultfd file descriptor */
     long code_offset = ((long *)args)[1];
     long code_start_address = ((long *)args)[2];
-    static char *page = NULL;
+    char *page = NULL;
     ssize_t nread;
 
     /* Create a page that will be copied into the faulting region */
@@ -47,6 +47,7 @@ static void *fault_handler_thread(void *args) {
     //     if (page == MAP_FAILED)
     //         errExit("mmap");
     // }
+    // memset(page, 'A' + fault_cnt % 20, page_size);
 
     /* Loop, handling incoming events on the userfaultfd
         file descriptor */
@@ -62,9 +63,9 @@ static void *fault_handler_thread(void *args) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        printf("\nfault_handler_thread():\n");
-        printf(" %d. poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
-                fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
+        printf("\nfault_handler_thread():-\n");
+        printf("   %d. poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
+                ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                 (pollfd.revents & POLLERR) != 0);
 
         /* Read an event from the userfaultfd */
@@ -85,7 +86,7 @@ static void *fault_handler_thread(void *args) {
 
         /* Display info about the page-fault event */
 
-        printf("    UFFD_EVENT_PAGEFAULT event: ");
+        printf("      UFFD_EVENT_PAGEFAULT event: ");
         printf("flags = %#llx; ", msg.arg.pagefault.flags);
         printf("address = %#llx\n", msg.arg.pagefault.address);
 
@@ -95,17 +96,16 @@ static void *fault_handler_thread(void *args) {
 
         if (page == NULL) {
             int exefd = open("/proc/self/exe", O_RDONLY);
-            off_t file_offset = (off_t)((code_offset + (msg.arg.pagefault.address - code_start_address))
-                                         & ~(page_size - 1));
-            page = mmap(NULL, page_size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS,
-                        exefd, file_offset);
-            printf("    Offset in executable: %ld; Code page address: %#lx\n",
-                   file_offset, (unsigned long)page);
+            off_t file_offset = (off_t)((code_offset + (msg.arg.pagefault.address -
+                                        code_start_address)) & ~(page_size - 1));
+            page = mmap(NULL, page_size, PROT_READ | PROT_EXEC,
+                        MAP_PRIVATE, exefd, file_offset);
+            printf("      Offset in executable: %ld; Code page address: %#lx\n",
+                    file_offset, (unsigned long)page);
             close(exefd);
             if (page == MAP_FAILED)
                 errExit("mmap");
         }
-        fault_cnt++;
 
         struct uffdio_copy uffdio_copy = {
             .src = (unsigned long)page,
@@ -121,7 +121,7 @@ static void *fault_handler_thread(void *args) {
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
-        printf("    uffdio_copy.copy returned %lld\n", uffdio_copy.copy);
+        printf("      (uffdio_copy.copy returned %lld)\n", uffdio_copy.copy);
     }
 }
 
@@ -202,7 +202,7 @@ int uffd_init() {
     long uffd; /* userfaultfd file descriptor */
     pthread_t thr;      /* ID of thread that handles page faults */
     page_size = sysconf(_SC_PAGE_SIZE);
-    setup_sigsegv_handler();
+    //setup_sigsegv_handler();
 
     /* Create and enable userfaultfd object */
 
