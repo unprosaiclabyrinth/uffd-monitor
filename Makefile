@@ -1,5 +1,5 @@
 CXX = gcc
-CXXFLAGS = -Wall -Wextra -shared -fPIC -g
+CXXFLAGS = -Wall -Wextra -shared -fPIC
 
 all: libuffd.so
 
