@@ -29,25 +29,14 @@
 
 static int page_size;
 
-// TODO: mmap page from executable
 static void *fault_handler_thread(void *args) {
-    static struct uffd_msg msg;    /* Data read from userfaultfd */
-    static int fault_cnt = 0;      /* Number of faults so far handled */
-    long uffd = ((long *)args)[0]; /* userfaultfd file descriptor */
-    long code_offset = ((long *)args)[1];
-    long code_start_address = ((long *)args)[2];
+    static struct uffd_msg msg;                  /* Data read from userfaultfd */
+    static int fault_cnt = 0;                    /* Number of faults so far handled */
+    long uffd = ((long *)args)[0];               /* userfaultfd file descriptor */
+    long code_offset = ((long *)args)[1];        /* offset of code VMA in executable */
+    long code_start_address = ((long *)args)[2]; /* start address of code VMA */
     char *page = NULL;
     ssize_t nread;
-
-    /* Create a page that will be copied into the faulting region */
-
-    // if (page == NULL) {
-    //     page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
-    //                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    //     if (page == MAP_FAILED)
-    //         errExit("mmap");
-    // }
-    // memset(page, 'A' + fault_cnt % 20, page_size);
 
     /* Loop, handling incoming events on the userfaultfd
         file descriptor */
@@ -90,9 +79,7 @@ static void *fault_handler_thread(void *args) {
         printf("flags = %#llx; ", msg.arg.pagefault.flags);
         printf("address = %#llx\n", msg.arg.pagefault.address);
 
-        /* Copy the page pointed to by 'page' into the faulting
-            region. Vary the contents that are copied in, so that it
-            is more obvious that each fault is handled separately. */
+        /* Create a page that will be copied into the faulting region */
 
         if (page == NULL) {
             int exefd = open("/proc/self/exe", O_RDONLY);
@@ -106,6 +93,10 @@ static void *fault_handler_thread(void *args) {
             if (page == MAP_FAILED)
                 errExit("mmap");
         }
+
+        /* Copy the page pointed to by 'page' into the faulting
+            region. Vary the contents that are copied in, so that it
+            is more obvious that each fault is handled separately. */
 
         struct uffdio_copy uffdio_copy = {
             .src = (unsigned long)page,
