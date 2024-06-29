@@ -2,7 +2,7 @@ CC     = gcc
 CFLAGS = -Wall -Wextra -shared -fPIC
 
 all:
-	@echo "target should be one of run1, run2, run3, run4"
+	@echo "nothing to be done for all"
 
 run1: libuffd.so
 	sudo LD_PRELOAD=./libuffd.so ./test/t01
