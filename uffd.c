@@ -26,6 +26,16 @@
 #include <execinfo.h>
 #include <ucontext.h>
 
+// ANSI color codes
+#define RESET "\033[0m"
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
+#define BLUE "\033[34m"
+#define MAGENTA "\033[35m"
+#define CYAN "\033[36m"
+#define WHITE "\033[37m"
+
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 static int page_size;
@@ -53,8 +63,8 @@ static void *fault_handler_thread(void *args) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        printf("\nfault_handler_thread():-\n");
-        printf("   %d. poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
+        printf(MAGENTA "\nfault_handler_thread():-\n" RESET);
+        printf(MAGENTA "   %d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
                 ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                 (pollfd.revents & POLLERR) != 0);
 
@@ -78,14 +88,14 @@ static void *fault_handler_thread(void *args) {
 
         printf("      UFFD_EVENT_PAGEFAULT event: ");
         printf("flags = %#llx; ", msg.arg.pagefault.flags);
-        printf("address = %#llx\n", msg.arg.pagefault.address);
+        printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
 
         /* Create a page that will be copied into the faulting region */
 
         if (page == 0) {
             long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
             page = (new_vma + page_offset) & ~(page_size - 1);
-            printf("      Page source: %lx ", page);
+            printf(BLUE "      Page source = " GREEN "%lx " RESET, page);
             mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
         }
 
@@ -125,9 +135,9 @@ void get_code_vma_bounds(unsigned long *code_vma_start_addr,
     sscanf(line, "%lx-%lx", code_vma_start_addr, code_vma_end_addr);
     fclose(proc_maps);
 
-    printf("                PID: %d\n", getpid());
-    printf("Code VMA start addr: %#lx\n", *code_vma_start_addr);
-    printf("  Code VMA end addr: %#lx\n", *code_vma_end_addr);
+    printf(BLUE "                PID: " YELLOW "%d\n" RESET , getpid());
+    printf(BLUE "Code VMA start addr: " WHITE "%#lx\n" RESET, *code_vma_start_addr);
+    printf(BLUE "  Code VMA end addr: " WHITE "%#lx\n" RESET, *code_vma_end_addr);
 }
 
 void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
@@ -153,7 +163,7 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     memcpy(old_vma, new_vma, len);
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
 
-    printf("Code section length: %ld\n", len);
+    printf(BLUE "    Code VMA length: " WHITE "%ld\n" RESET, len);
     printf("       New VMA addr: %p\n", new_vma);
     printf("       Old VMA addr: %p\n", old_vma);
     // Drop all code pages
