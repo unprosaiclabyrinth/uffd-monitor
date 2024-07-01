@@ -143,12 +143,16 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     // Copy code pages to new VMA
     void *new_vma = mmap(NULL, len, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (new_vma == MAP_FAILED)
+        errExit("new_vma-mmap");
     memcpy(new_vma, (void *)code_vma_start_addr, len);
 
     // Map anonymous VMA in place of old VMA
     munmap((void *)code_vma_start_addr, len); // Unmap the unavailable code VMA first
     void *old_vma = mmap((void *)code_vma_start_addr, len, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (old_vma == MAP_FAILED)
+        errExit("old_vma-mmap");
     
     // Copy code pages back to old VMA
     memcpy(old_vma, new_vma, len);
