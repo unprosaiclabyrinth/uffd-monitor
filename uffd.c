@@ -40,7 +40,7 @@ static void *fault_handler_thread(void *args) {
     ssize_t nread;
 
     /* Loop, handling incoming events on the userfaultfd
-        file descriptor */
+       file descriptor */
 
     while (1) {
         /* See what poll() tells us about the userfaultfd */
@@ -96,8 +96,8 @@ static void *fault_handler_thread(void *args) {
         }
 
         /* Copy the page pointed to by 'page' into the faulting
-            region. Vary the contents that are copied in, so that it
-            is more obvious that each fault is handled separately. */
+           region. Vary the contents that are copied in, so that it
+           is more obvious that each fault is handled separately. */
 
         struct uffdio_copy uffdio_copy = {
             .src = (unsigned long)page,
@@ -167,7 +167,7 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     // Drop all code pages
     printf("        madvise ret: %d\n", madvise(old_vma, len, MADV_DONTNEED));
 
-    return old_vma;
+    return new_vma;
 }
 
 void sigsegv_handler(int sig __attribute__((unused)), siginfo_t *si,
@@ -223,11 +223,11 @@ int uffd_init() {
     unsigned long code_vma_start_addr, code_vma_end_addr;
     long code_offset; // Offset of the code VMA in the executable file
     get_code_addrs_and_offset(&code_vma_start_addr, &code_vma_end_addr, &code_offset);
-    void *old_vma = file_backed_to_dontneed_anon(code_vma_start_addr, code_vma_end_addr);
+    __attribute__((unused)) void *new_vma = file_backed_to_dontneed_anon(code_vma_start_addr, code_vma_end_addr);
 
     struct uffdio_register uffdio_register = {
         .range = {
-            .start = (unsigned long)old_vma,
+            .start = code_vma_start_addr,
             .len = code_vma_end_addr - code_vma_start_addr,
         },
         .mode = UFFDIO_REGISTER_MODE_MISSING
