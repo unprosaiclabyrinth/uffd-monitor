@@ -36,7 +36,7 @@ static void *fault_handler_thread(void *args) {
     long uffd = ((long *)args)[0];                /* userfaultfd file descriptor */
     long code_offset = ((long *)args)[1];         /* offset of code VMA in executable */
     long code_vma_start_addr = ((long *)args)[2]; /* start address of code VMA */
-    char *page = NULL;
+    void *page = NULL;
     ssize_t nread;
 
     /* Loop, handling incoming events on the userfaultfd
