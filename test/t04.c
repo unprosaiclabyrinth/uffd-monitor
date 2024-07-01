@@ -4,7 +4,7 @@
  * https://github.com/shenfeng/tiny-web-server
  * 
  * Usage: ./t04
- *  [client]$ curl localhost:8888
+ *  [client]$ curl localhost:2424
  * */
 #include <arpa/inet.h>          /* inet_ntoa */
 #include <signal.h>
@@ -385,7 +385,7 @@ void process(int fd, struct sockaddr_in *clientaddr){
 
 int main(int argc, char** argv){
     struct sockaddr_in clientaddr;
-    int default_port = 8888,
+    int default_port = 2424,
         listenfd,
         connfd;
     char buf[256];
