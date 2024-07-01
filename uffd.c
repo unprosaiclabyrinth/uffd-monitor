@@ -85,6 +85,7 @@ static void *fault_handler_thread(void *args) {
         if (page == 0) {
             long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
             page = (new_vma + page_offset) & ~(page_size - 1);
+            printf("      Page source: %lx ", page);
             mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
         }
 
@@ -106,7 +107,7 @@ static void *fault_handler_thread(void *args) {
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
-        printf("      (uffdio_copy.copy returned %lld)\n", uffdio_copy.copy);
+        printf("(uffdio_copy.copy returned %lld)\n", uffdio_copy.copy);
     }
 }
 
