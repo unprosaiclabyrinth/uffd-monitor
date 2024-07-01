@@ -117,8 +117,9 @@ static void *fault_handler_thread(void *args) {
     }
 }
 
-void get_code_addrs_and_offset(unsigned long *code_vma_start_addr, 
-                               unsigned long *code_vma_end_addr,long *code_offset) {
+void get_code_vma_bounds_and_offset(unsigned long *code_vma_start_addr, 
+                                    unsigned long *code_vma_end_addr,
+                                    long *code_offset) {
     FILE *proc_maps = fopen("/proc/self/maps", "r");
     if (proc_maps == NULL) {
         perror("fopen");
@@ -222,7 +223,8 @@ int uffd_init() {
     
     unsigned long code_vma_start_addr, code_vma_end_addr;
     long code_offset; // Offset of the code VMA in the executable file
-    get_code_addrs_and_offset(&code_vma_start_addr, &code_vma_end_addr, &code_offset);
+    get_code_vma_bounds_and_offset(&code_vma_start_addr, &code_vma_end_addr,
+                                   &code_offset);
     void *old_vma = file_backed_to_dontneed_anon(code_vma_start_addr, code_vma_end_addr);
 
     struct uffdio_register uffdio_register = {
