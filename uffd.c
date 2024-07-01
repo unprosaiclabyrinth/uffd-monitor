@@ -8,6 +8,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <stdio.h>
+#include <assert.h>
 #include <linux/userfaultfd.h>
 #include <pthread.h>
 #include <errno.h>
@@ -153,6 +154,7 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (old_vma == MAP_FAILED)
         errExit("old_vma-mmap");
+    assert((unsigned long)old_vma == code_vma_start_addr);
     
     // Copy code pages back to old VMA
     memcpy(old_vma, new_vma, len);
