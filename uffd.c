@@ -30,11 +30,11 @@
 static int page_size;
 
 static void *fault_handler_thread(void *args) {
-    static struct uffd_msg msg;                  /* Data read from userfaultfd */
-    static int fault_cnt = 0;                    /* Number of faults so far handled */
-    long uffd = ((long *)args)[0];               /* userfaultfd file descriptor */
-    long code_offset = ((long *)args)[1];        /* offset of code VMA in executable */
-    long code_start_address = ((long *)args)[2]; /* start address of code VMA */
+    static struct uffd_msg msg;                   /* Data read from userfaultfd */
+    static int fault_cnt = 0;                     /* Number of faults so far handled */
+    long uffd = ((long *)args)[0];                /* userfaultfd file descriptor */
+    long code_offset = ((long *)args)[1];         /* offset of code VMA in executable */
+    long code_vma_start_addr = ((long *)args)[2]; /* start address of code VMA */
     char *page = NULL;
     ssize_t nread;
 
@@ -83,12 +83,12 @@ static void *fault_handler_thread(void *args) {
 
         if (page == NULL) {
             int exefd = open("/proc/self/exe", O_RDONLY);
-            off_t file_offset = (off_t)((code_offset + (msg.arg.pagefault.address -
-                                        code_start_address)) & ~(page_size - 1));
+            off_t page_offset = (off_t)((code_offset + (msg.arg.pagefault.address -
+                                        code_vma_start_addr)) & ~(page_size - 1));
             page = mmap(NULL, page_size, PROT_READ | PROT_EXEC,
-                        MAP_PRIVATE, exefd, file_offset);
+                        MAP_PRIVATE, exefd, page_offset);
             printf("      Offset in executable: %ld; Code page address: %#lx\n",
-                    file_offset, (unsigned long)page);
+                    page_offset, (unsigned long)page);
             close(exefd);
             if (page == MAP_FAILED)
                 errExit("mmap");
@@ -116,7 +116,8 @@ static void *fault_handler_thread(void *args) {
     }
 }
 
-void get_code_addrs_and_offset(unsigned long addrs[], long *code_offset) {
+void get_code_addrs_and_offset(unsigned long *code_vma_start_addr, 
+                               unsigned long *code_vma_end_addr,long *code_offset) {
     FILE *proc_maps = fopen("/proc/self/maps", "r");
     if (proc_maps == NULL) {
         perror("fopen");
@@ -126,26 +127,27 @@ void get_code_addrs_and_offset(unsigned long addrs[], long *code_offset) {
     char line[256];
     fgets(line, sizeof(line), proc_maps); // read line 1
     fgets(line, sizeof(line), proc_maps); // read line 2 (.text)
-    sscanf(line, "%lx-%lx r-xp %lx", &addrs[0], &addrs[1], code_offset);
+    sscanf(line, "%lx-%lx r-xp %lx", code_vma_start_addr, code_vma_end_addr, code_offset);
     fclose(proc_maps);
 
     printf("                PID: %d\n", getpid());
-    printf("Code VMA start addr: %#lx\n", addrs[0]);
-    printf("  Code VMA end addr: %#lx\n", addrs[1]);
+    printf("Code VMA start addr: %#lx\n", *code_vma_start_addr);
+    printf("  Code VMA end addr: %#lx\n", *code_vma_end_addr);
     printf("             Offset: %ld\n", *code_offset);
 }
 
-void *file_backed_to_dontneed_anon(unsigned long addrs[]) {
-    size_t len = (size_t)(addrs[1] - addrs[0]);
+void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
+                                   unsigned long code_vma_end_addr) {
+    size_t len = (size_t)(code_vma_end_addr - code_vma_start_addr);
 
     // Copy code pages to new VMA
     void *new_vma = mmap(NULL, len, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    memcpy(new_vma, (void *)addrs[0], len);
+    memcpy(new_vma, (void *)code_vma_start_addr, len);
 
     // Map anonymous VMA in place of old VMA
-    munmap((void *)addrs[0], len); // Unmap the unavailable code VMA first
-    void *old_vma = mmap((void *)addrs[0], len, PROT_READ | PROT_WRITE,
+    munmap((void *)code_vma_start_addr, len); // Unmap the unavailable code VMA first
+    void *old_vma = mmap((void *)code_vma_start_addr, len, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     
     // Copy code pages back to old VMA
@@ -212,15 +214,15 @@ int uffd_init() {
        userfaultfd object. In mode, we request to track missing pages
        (i.e., pages that have not yet been faulted in). */
     
-    unsigned long addrs[2];
-    long code_offset;
-    get_code_addrs_and_offset(addrs, &code_offset);
-    void *old_vma = file_backed_to_dontneed_anon(addrs);
+    unsigned long code_vma_start_addr, code_vma_end_addr;
+    long code_offset; // Offset of the code VMA in the executable file
+    get_code_addrs_and_offset(&code_vma_start_addr, &code_vma_end_addr, &code_offset);
+    void *old_vma = file_backed_to_dontneed_anon(code_vma_start_addr, code_vma_end_addr);
 
     struct uffdio_register uffdio_register = {
         .range = {
             .start = (unsigned long)old_vma,
-            .len = addrs[1] - addrs[0]
+            .len = code_vma_end_addr - code_vma_start_addr,
         },
         .mode = UFFDIO_REGISTER_MODE_MISSING
     };
@@ -229,7 +231,7 @@ int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    long args[3] = {uffd, code_offset, (long)addrs[0]};
+    long args[3] = {uffd, code_offset, (long)code_vma_start_addr};
     int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)args);
     if (s != 0) {
         errno = s;
