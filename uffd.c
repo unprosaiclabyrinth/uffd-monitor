@@ -34,13 +34,13 @@ static void *fault_handler_thread(void *args) {
     static struct uffd_msg msg;                   /* Data read from userfaultfd */
     static int fault_cnt = 0;                     /* Number of faults so far handled */
     long uffd = ((long *)args)[0];                /* userfaultfd file descriptor */
-    long code_offset = ((long *)args)[1];         /* offset of code VMA in executable */
+    long new_vma = ((long *)args)[1];         /* offset of code VMA in executable */
     long code_vma_start_addr = ((long *)args)[2]; /* start address of code VMA */
-    void *page = NULL;
+    unsigned long page = 0;
     ssize_t nread;
 
     /* Loop, handling incoming events on the userfaultfd
-        file descriptor */
+       file descriptor */
 
     while (1) {
         /* See what poll() tells us about the userfaultfd */
@@ -82,25 +82,18 @@ static void *fault_handler_thread(void *args) {
 
         /* Create a page that will be copied into the faulting region */
 
-        if (page == NULL) {
-            int exefd = open("/proc/self/exe", O_RDONLY);
-            off_t page_offset = (off_t)((code_offset + (msg.arg.pagefault.address -
-                                        code_vma_start_addr)) & ~(page_size - 1));
-            page = mmap(NULL, page_size, PROT_READ | PROT_EXEC,
-                        MAP_PRIVATE, exefd, page_offset);
-            printf("      Offset in executable: %ld; Code page address: %#lx\n",
-                    page_offset, (unsigned long)page);
-            close(exefd);
-            if (page == MAP_FAILED)
-                errExit("mmap");
+        if (page == 0) {
+            long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
+            page = (new_vma + page_offset) & ~(page_size - 1);
+            mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
         }
 
         /* Copy the page pointed to by 'page' into the faulting
-            region. Vary the contents that are copied in, so that it
-            is more obvious that each fault is handled separately. */
+           region. Vary the contents that are copied in, so that it
+           is more obvious that each fault is handled separately. */
 
         struct uffdio_copy uffdio_copy = {
-            .src = (unsigned long)page,
+            .src = page,
 
             /* We need to handle page faults in units of pages(!).
                So, round faulting address down to page boundary */
@@ -117,9 +110,8 @@ static void *fault_handler_thread(void *args) {
     }
 }
 
-void get_code_vma_bounds_and_offset(unsigned long *code_vma_start_addr, 
-                                    unsigned long *code_vma_end_addr,
-                                    long *code_offset) {
+void get_code_vma_bounds(unsigned long *code_vma_start_addr, 
+                         unsigned long *code_vma_end_addr) {
     FILE *proc_maps = fopen("/proc/self/maps", "r");
     if (proc_maps == NULL) {
         perror("fopen");
@@ -129,13 +121,12 @@ void get_code_vma_bounds_and_offset(unsigned long *code_vma_start_addr,
     char line[256];
     fgets(line, sizeof(line), proc_maps); // read line 1
     fgets(line, sizeof(line), proc_maps); // read line 2 (.text)
-    sscanf(line, "%lx-%lx r-xp %lx", code_vma_start_addr, code_vma_end_addr, code_offset);
+    sscanf(line, "%lx-%lx", code_vma_start_addr, code_vma_end_addr);
     fclose(proc_maps);
 
     printf("                PID: %d\n", getpid());
     printf("Code VMA start addr: %#lx\n", *code_vma_start_addr);
     printf("  Code VMA end addr: %#lx\n", *code_vma_end_addr);
-    printf("             Offset: %ld\n", *code_offset);
 }
 
 void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
@@ -160,7 +151,6 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     // Copy code pages back to old VMA
     memcpy(old_vma, new_vma, len);
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
-    munmap(new_vma, len);
 
     printf("Code section length: %ld\n", len);
     printf("       New VMA addr: %p\n", new_vma);
@@ -168,7 +158,7 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     // Drop all code pages
     printf("        madvise ret: %d\n", madvise(old_vma, len, MADV_DONTNEED));
 
-    return old_vma;
+    return new_vma;
 }
 
 void sigsegv_handler(int sig __attribute__((unused)), siginfo_t *si,
@@ -222,14 +212,12 @@ int uffd_init() {
        (i.e., pages that have not yet been faulted in). */
     
     unsigned long code_vma_start_addr, code_vma_end_addr;
-    long code_offset; // Offset of the code VMA in the executable file
-    get_code_vma_bounds_and_offset(&code_vma_start_addr, &code_vma_end_addr,
-                                   &code_offset);
-    void *old_vma = file_backed_to_dontneed_anon(code_vma_start_addr, code_vma_end_addr);
+    get_code_vma_bounds(&code_vma_start_addr, &code_vma_end_addr);
+    void *new_vma = file_backed_to_dontneed_anon(code_vma_start_addr, code_vma_end_addr);
 
     struct uffdio_register uffdio_register = {
         .range = {
-            .start = (unsigned long)old_vma,
+            .start = code_vma_start_addr,
             .len = code_vma_end_addr - code_vma_start_addr,
         },
         .mode = UFFDIO_REGISTER_MODE_MISSING
@@ -239,7 +227,7 @@ int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    long args[3] = {uffd, code_offset, (long)code_vma_start_addr};
+    long args[3] = {uffd, (long)new_vma, (long)code_vma_start_addr};
     int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)args);
     if (s != 0) {
         errno = s;
