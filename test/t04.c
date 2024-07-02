@@ -421,6 +421,7 @@ int main(int argc, char** argv){
     // won't kill the whole process.
     signal(SIGPIPE, SIG_IGN);
 
+    printf("parent pid is %d\n", getpid());
     for(int i = 0; i < PROC_NUM; i++) {
         int pid = fork();
         if(pid == 0) {         //  child
