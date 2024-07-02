@@ -5,5 +5,5 @@ Get started:
 make run1 # run test1: simple I/O
 make run2 # run test2: counter
 make run3 # run test3: epoll server
-make run4 # run test4: fork 
+make run4 # run test4: tiny web server with 2 child processes 
 ```
