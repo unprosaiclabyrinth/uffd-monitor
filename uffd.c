@@ -49,6 +49,8 @@ static void *fault_handler_thread(void *args) {
     unsigned long page = 0;
     ssize_t nread;
 
+    printf(MAGENTA "fault_handler_thread():-\n" RESET);
+
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
 
@@ -63,8 +65,7 @@ static void *fault_handler_thread(void *args) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        printf(MAGENTA "\nfault_handler_thread():-\n" RESET);
-        printf(MAGENTA "   %d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
+        printf(MAGENTA "\n   %d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
                 ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                 (pollfd.revents & POLLERR) != 0);
 
@@ -92,12 +93,10 @@ static void *fault_handler_thread(void *args) {
 
         /* Create a page that will be copied into the faulting region */
 
-        if (page == 0) {
-            long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
-            page = (new_vma + page_offset) & ~(page_size - 1);
-            printf(BLUE "      Page source = " GREEN "%lx " RESET, page);
-            mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
-        }
+        long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
+        page = (new_vma + page_offset) & ~(page_size - 1);
+        printf(BLUE "      Page source = " GREEN "%lx " RESET, page);
+        mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
 
         /* Copy the page pointed to by 'page' into the faulting
            region. Vary the contents that are copied in, so that it
@@ -117,7 +116,7 @@ static void *fault_handler_thread(void *args) {
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
-        printf("(uffdio_copy.copy returned %lld)\n", uffdio_copy.copy);
+        printf("(uffdio_copy.copy returned %lld)\n\n", uffdio_copy.copy);
     }
 }
 
@@ -203,7 +202,7 @@ int uffd_init() {
     long uffd; /* userfaultfd file descriptor */
     pthread_t thr;      /* ID of thread that handles page faults */
     page_size = sysconf(_SC_PAGE_SIZE);
-    //setup_sigsegv_handler();
+    setup_sigsegv_handler();
 
     /* Create and enable userfaultfd object */
 
@@ -244,7 +243,7 @@ int uffd_init() {
         errno = s;
         errExit("pthread_create");
     }
-    printf(" pthread_create ret: %d\n", s);
+    printf(" pthread_create ret: %d\n\n", s);
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */
