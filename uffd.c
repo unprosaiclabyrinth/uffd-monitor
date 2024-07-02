@@ -135,8 +135,8 @@ void get_code_vma_bounds(unsigned long *code_vma_start_addr,
     fclose(proc_maps);
 
     printf(BLUE "                PID: " YELLOW "%d\n" RESET , getpid());
-    printf(BLUE "Code VMA start addr: " WHITE "%#lx\n" RESET, *code_vma_start_addr);
-    printf(BLUE "  Code VMA end addr: " WHITE "%#lx\n" RESET, *code_vma_end_addr);
+    printf(BLUE "Code VMA start addr: " RESET "%#lx\n", *code_vma_start_addr);
+    printf(BLUE "  Code VMA end addr: " RESET "%#lx\n", *code_vma_end_addr);
 }
 
 void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
@@ -162,7 +162,7 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     memcpy(old_vma, new_vma, len);
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
 
-    printf(BLUE "    Code VMA length: " WHITE "%ld\n" RESET, len);
+    printf(BLUE "    Code VMA length: " YELLOW "%ld\n" RESET, len);
     printf("       New VMA addr: %p\n", new_vma);
     printf("       Old VMA addr: %p\n", old_vma);
     // Drop all code pages
@@ -202,7 +202,7 @@ int uffd_init() {
     long uffd; /* userfaultfd file descriptor */
     pthread_t thr;      /* ID of thread that handles page faults */
     page_size = sysconf(_SC_PAGE_SIZE);
-    setup_sigsegv_handler();
+    //setup_sigsegv_handler();
 
     /* Create and enable userfaultfd object */
 
