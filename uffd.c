@@ -69,7 +69,7 @@ static void *fault_handler_thread(void *args) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        printf(MAGENTA "\n   %4d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
+        printf(MAGENTA "\n%6d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
                 ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                 (pollfd.revents & POLLERR) != 0);
 
@@ -91,7 +91,7 @@ static void *fault_handler_thread(void *args) {
 
         /* Display info about the page-fault event */
 
-        printf("      UFFD_EVENT_PAGEFAULT event: ");
+        printf("        UFFD_EVENT_PAGEFAULT event: ");
         printf("flags = %#llx; ", msg.arg.pagefault.flags);
         printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
 
@@ -99,7 +99,7 @@ static void *fault_handler_thread(void *args) {
 
         long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
         page = (new_vma + page_offset) & ~(page_size - 1);
-        printf(BLUE "      Page source = " GREEN "%lx " RESET, page);
+        printf(BLUE "        Page source = " GREEN "%lx " RESET, page);
         mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
 
         /* Copy the page pointed to by 'page' into the faulting
