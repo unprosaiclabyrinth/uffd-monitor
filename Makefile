@@ -1,8 +1,7 @@
 CC     = gcc
 CFLAGS = -Wall -Wextra -shared -fPIC
 
-all:
-	@echo "nothing to be done for all"
+all: libuffd.so
 
 run1: libuffd.so
 	sudo LD_PRELOAD=./libuffd.so ./test/t01
