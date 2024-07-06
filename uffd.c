@@ -69,7 +69,7 @@ static void *fault_handler_thread(void *args) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        printf(MAGENTA "\n   %d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
+        printf(MAGENTA "\n   %4d. " RESET "poll() returns: nready = %d; POLLIN = %d; POLLERR = %d\n",
                 ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                 (pollfd.revents & POLLERR) != 0);
 
