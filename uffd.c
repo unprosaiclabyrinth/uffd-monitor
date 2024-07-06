@@ -39,6 +39,10 @@
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 static int page_size;
+// Function pointer to hold the address of the original fork function
+// used in fork hijack
+typedef pid_t (*fork_t)(void);
+static fork_t real_fork = NULL;
 
 static void *fault_handler_thread(void *args) {
     static struct uffd_msg msg;                   /* Data read from userfaultfd */
@@ -169,6 +173,24 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     printf("        madvise ret: %d\n", madvise(old_vma, len, MADV_DONTNEED));
 
     return new_vma;
+}
+
+// Our custom fork function
+pid_t fork(void) {
+    // Load the original fork function if not already loaded
+    if (!real_fork) {
+        real_fork = (fork_t)dlsym(RTLD_NEXT, "fork");
+        if (!real_fork) {
+            fprintf(stderr, "Error in `dlsym`: %s\n", dlerror());
+            exit(1);
+        }
+    }
+
+    // Print a message before calling the original fork function
+    printf("Intercepted call to fork!\n");
+
+    // Call the original fork function
+    return real_fork();
 }
 
 void sigsegv_handler(int sig __attribute__((unused)), siginfo_t *si,
