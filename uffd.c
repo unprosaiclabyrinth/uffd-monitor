@@ -91,7 +91,7 @@ static void *fault_handler_thread(void *args) {
 
         /* Display info about the page-fault event */
 
-        printf("        UFFD_EVENT_PAGEFAULT event: ");
+        printf("        PAGEFAULT event: ");
         printf("flags = %#llx; ", msg.arg.pagefault.flags);
         printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
 
@@ -120,7 +120,7 @@ static void *fault_handler_thread(void *args) {
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
-        printf("(uffdio_copy.copy returned %lld)\n\n", uffdio_copy.copy);
+        printf("(uffdio_copy.copy -> %lld)\n\n", uffdio_copy.copy);
     }
 }
 
