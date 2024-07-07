@@ -22,10 +22,6 @@
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
 
-#include <signal.h>
-#include <execinfo.h>
-#include <ucontext.h>
-
 // ANSI color codes
 #define RESET "\033[0m"
 #define RED "\033[31m"
