@@ -1,3 +1,6 @@
+#include <signal.h>
+#include <execinfo.h>
+#include <ucontext.h>
 #include "uffd.h"
 
 void sigsegv_handler(__attribute__((unused)) int sig, siginfo_t *si,
