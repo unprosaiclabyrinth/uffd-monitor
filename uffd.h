@@ -34,12 +34,38 @@
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
+#define MAX_CHILDREN 1000
+
+extern long uffd;            /* userfaultfd file descriptor */
+extern int self_pipe_fds[2]; /* ends of the self-pipe used to update poll_fds */
+
 // Function pointer to hold the address of the original fork function
 // used in fork hijack
 typedef pid_t (*fork_t)(void);
 
 // Custom fork to hijack calls to libc fork
 pid_t fork();
+
+// Maintain log of page faults in children
+struct ipc_fds {
+    int parent_read;
+    int parent_write;
+};
+
+struct child_pf_log_entry {
+    pid_t child_pid;
+    int fault_cnt;
+    struct ipc_fds ipc_fds;
+};
+
+void add_log_entry(pid_t, int, int);
+struct child_pf_log_entry *get_log_entry(int parent_read);
+
+// Polling API
+void add_fd(int, short, struct pollfd *, int);
+struct pollfd *get_pollfd(int, struct pollfd *, int);
+void get_ready_fds(int *, struct pollfd *, int);
+int fd_is_ready(int, int *, int);
 
 // Functions to manipulate code VMA
 void get_code_vma_bounds(unsigned long *, unsigned long *);
