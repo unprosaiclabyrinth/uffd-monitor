@@ -28,7 +28,6 @@ static long long int serve_page(int fd, struct uffd_msg msg, long new_vma,
         .mode = 0,
         .copy = 0
     };
-    printf("ioctl with fd = %d\n", fd);
     if (ioctl(fd, UFFDIO_COPY, &uffdio_copy) == -1)
         errExit("ioctl-UFFDIO_COPY");
 
@@ -45,6 +44,18 @@ static void *fault_handler_thread(void *args) {
     if (pipe(self_pipe_fds) == -1)
         errExit("self pipe");
 
+    struct pollfd poll_fds[MAX_CHILDREN];
+    // Add read end of the self pipe
+    poll_fds[0] = (struct pollfd){
+        .fd = self_pipe_fds[0],
+        .events = POLLIN
+    }; ++nfds;
+    // Add uffd
+    poll_fds[1] = (struct pollfd){
+        .fd = uffd,
+        .events = POLLIN
+    }; ++nfds;
+
     printf(MAGENTA "fault_handler_thread():-\n" RESET);
 
     /* Loop, handling incoming events on the userfaultfd
@@ -54,17 +65,6 @@ static void *fault_handler_thread(void *args) {
         /* See what poll() tells us about the userfaultfd */
 
         int nready;
-        struct pollfd poll_fds[MAX_CHILDREN];
-        // Add read end of the self pipe
-        poll_fds[0] = (struct pollfd){
-            .fd = self_pipe_fds[0],
-            .events = POLLIN
-        }; ++nfds;
-        // Add uffd
-        poll_fds[1] = (struct pollfd){
-            .fd = uffd,
-            .events = POLLIN
-        }; ++nfds;
         nready = poll(poll_fds, nfds, -1);
         if (nready == -1)
             errExit("poll");
@@ -82,9 +82,9 @@ static void *fault_handler_thread(void *args) {
         // Handle page faults of the parent process
         if (fd_is_ready(uffd, ready_fds, nready)) {
             struct pollfd pollfd = *get_pollfd(uffd, poll_fds, nfds);
-            printf(MAGENTA "\n%6d. " RESET "poll() returns:"
+            printf(MAGENTA "\n%6d. " RESET "poll() returns: "
                    "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                   fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
+                   ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                    (pollfd.revents & POLLERR) != 0);
 
             /* Read an event from the userfaultfd */

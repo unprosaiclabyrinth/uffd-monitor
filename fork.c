@@ -2,7 +2,6 @@
 
 static fork_t real_fork = NULL;
 
-__attribute__((unused))
 static void *fault_notifier_thread(void *args) {
     struct uffd_msg msg;
     __attribute__((unused)) int child_read = ((int *)args)[0];
@@ -59,7 +58,7 @@ pid_t fork() {
     int parent_write = parent_to_child[1];
 
     // Call the original fork function
-    printf("Intercepted call to fork!\n");
+    printf(CYAN "HIjacked! Trying to fork, are we?\n" RESET);
     pid_t child_pid = real_fork();
     if (child_pid == 0) {
         close(parent_read);
