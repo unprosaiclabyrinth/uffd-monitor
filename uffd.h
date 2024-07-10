@@ -66,6 +66,8 @@ void add_fd(int, short, struct pollfd *, int);
 struct pollfd *get_pollfd(int, struct pollfd *, int);
 void get_ready_fds(int *, struct pollfd *, int);
 int fd_is_ready(int, int *, int);
+void dump_poll_fds(struct pollfd *, int);
+void dump_ready_fds(int *, int);
 
 // Functions to manipulate code VMA
 void get_code_vma_bounds(unsigned long *, unsigned long *);

@@ -5,7 +5,7 @@ void add_fd(int fd, short events, struct pollfd poll_fds[], int nfds) {
         .fd = fd,
         .events = events
     };
-    poll_fds[nfds + 1] = pollfd;
+    poll_fds[nfds] = pollfd;
 }
 
 struct pollfd *get_pollfd(int fd, struct pollfd poll_fds[], int nfds) {
@@ -33,4 +33,20 @@ int fd_is_ready(int fd, int ready_fds[], int nready) {
             return 1;
     }
     return 0;
+}
+
+void dump_poll_fds(struct pollfd poll_fds[], int nfds) {
+    printf(WHITE "Going for the poll are %d fds...:-\n", nfds);
+    for (int i = 0; i < nfds; ++i) {
+        printf("%d\n", poll_fds[i].fd);
+    }
+    printf(RESET);
+}
+
+void dump_ready_fds(int ready_fds[], int nready) {
+    printf(WHITE "Ooh...%d fds are READY!!!:-\n", nready);
+    for (int i = 0; i < nready; ++i) {
+        printf("%d\n", ready_fds[i]);
+    }
+    printf(RESET);
 }
