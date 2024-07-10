@@ -1,4 +1,4 @@
-#include "uffd.c"
+#include "uffd.h"
 
 static struct child_pf_log_entry children_pf_log[MAX_CHILDREN];
 static int nentries = 0;
