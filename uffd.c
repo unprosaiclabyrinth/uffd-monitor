@@ -1,15 +1,47 @@
 #include "uffd.h"
 
 static int page_size;
+long uffd;
+int self_pipe_fds[2];
 
-static void *fault_handler_thread(void *args) {
-    static struct uffd_msg msg;                   /* Data read from userfaultfd */
+static int serve_page(int fd, struct uffd_msg msg, long new_vma,
+                       long code_start_vma_addr) {
+    /* Create a page that will be copied into the faulting region */
+
+    long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
+    unsigned long page = (new_vma + page_offset) & ~(page_size - 1);
+    printf(BLUE "        Page source = " GREEN "%lx " RESET, page);
+    mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
+
+    /* Copy the page pointed to by 'page' into the faulting
+    region. Vary the contents that are copied in, so that it
+    is more obvious that each fault is handled separately. */
+
+    struct uffdio_copy uffdio_copy = {
+        .src = page,
+
+        /* We need to handle page faults in units of pages(!).
+        So, round faulting address down to page boundary */
+
+        .dst = (unsigned long)msg.arg.pagefault.address & ~(page_size - 1),
+        .len = page_size,
+        .mode = 0,
+        .copy = 0
+    };
+    if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
+        errExit("ioctl-UFFDIO_COPY");
+
+    return uffdio_copy.copy;
+}
+
+void *fault_handler_thread(void *args) {
+    struct uffd_msg msg;                          /* Data read from userfaultfd */
     static int fault_cnt = 0;                     /* Number of faults so far handled */
-    long uffd = ((long *)args)[0];                /* userfaultfd file descriptor */
-    long new_vma = ((long *)args)[1];             /* offset of code VMA in executable */
-    long code_vma_start_addr = ((long *)args)[2]; /* start address of code VMA */
-    unsigned long page = 0;
+    long new_vma = ((long *)args)[0];             /* offset of code VMA in executable */
+    long code_vma_start_addr = ((long *)args)[1]; /* start address of code VMA */
     ssize_t nread;
+    if (pipe(self_pipe_fds[2]) == -1)
+        errExit("self pipe");
 
     printf(MAGENTA "fault_handler_thread():-\n" RESET);
 
@@ -19,73 +51,86 @@ static void *fault_handler_thread(void *args) {
     while (1) {
         /* See what poll() tells us about the userfaultfd */
 
+        int nfds = MAX_CHILDREN;
         int nready;
-        struct pollfd pollfd = {
-            .fd = uffd,
-            .events = POLLIN
-        };
+        struct pollfd poll_fds[nfds];
+        // Add read end of the self pipe
+        poll_fds[0] = { .fd = self_pipe_fds[0], .events = POLLIN };
+        // Add uffd
+        poll_fds[1] = { .fd = uffd, .events = POLLIN };
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
-        printf(MAGENTA "\n%6d. " RESET "poll() returns:"
-               "nready = %d; POLLIN = %d; POLLERR = %d\n",
-               ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-               (pollfd.revents & POLLERR) != 0);
+        int ready_fds[nready];
+        get_ready_fds(ready_fds, poll_fds, nready);
 
-        /* Read an event from the userfaultfd */
+        // Poll fds update mechanism: check for self pipe read
+        if (fd_is_ready(self_pipe_fds[0], ready_fds, nready)) {
+            int parent_read;
+            read(self_pipe_fds[0], &parent_read, sizeof(parent_read));
+            add_fd(parent_read, POLLIN, poll_fds, nfds);
+            continue;
+        }
+        
+        // Handle page faults of the parent process
+        if (fd_is_ready(uffd, ready_fds, nready)) {
+            printf(MAGENTA "\n%6d. " RESET "poll() returns:"
+                   "nready = %d; POLLIN = %d; POLLERR = %d\n",
+                   fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
+                   (pollfd.revents & POLLERR) != 0);
 
-        nread = read(uffd, &msg, sizeof(msg));
-        if (nread == 0) {
-            printf("EOF on userfaultfd!\n");
-            exit(EXIT_FAILURE);
-        } else if (nread == -1)
-            errExit("read");
+            /* Read an event from the userfaultfd */
 
-        /* We expect only one kind of event; verify that assumption */
+            nread = read(uffd, &msg, sizeof(msg));
+            if (nread == 0) {
+                printf("EOF on userfaultfd!\n");
+                exit(EXIT_FAILURE);
+            } else if (nread == -1)
+                errExit("read");
 
-        if (msg.event != UFFD_EVENT_PAGEFAULT) {
-            fprintf(stderr, "Unexpected event on userfaultfd\n");
-            exit(EXIT_FAILURE);
+            /* We expect only one kind of event; verify that assumption */
+
+            if (msg.event != UFFD_EVENT_PAGEFAULT) {
+                fprintf(stderr, "Unexpected event on userfaultfd\n");
+                exit(EXIT_FAILURE);
+            }
+
+            /* Display info about the page-fault event */
+
+            printf("        PAGEFAULT event: ");
+            printf("flags = %#llx; ", msg.arg.pagefault.flags);
+            printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
+
+            int uffdio_copy_copy = serve_page(uffd, msg, new_vma, code_vma_start_addr);
+            printf("(uffdio_copy.copy -> %lld)\n\n", uffdio_copy_copy);
         }
 
-        /* Display info about the page-fault event */
+        // Handle page faults of child(ren)
+        for (int i = 0; i < nready; ++i) {
+            if (ready_fds[i] != uffd && ready[i] != self_pipe_fds[0]) {
+                int parent_read = ready_fds[i];
 
-        printf("        PAGEFAULT event: ");
-        printf("flags = %#llx; ", msg.arg.pagefault.flags);
-        printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
+                nread = read(parent_read, &msg, sizeof(msg));
+                if (nread == 0) {
+                    printf("EOF on userfaultfd!\n");
+                    exit(EXIT_FAILURE);
+                } else if (nread == -1)
+                    errExit("read");
 
-        /* Create a page that will be copied into the faulting region */
+                if (msg.event != UFFD_EVENT_PAGEFAULT) {
+                    fprintf(stderr, "Unexpected event on userfaultfd\n");
+                    exit(EXIT_FAILURE);
+                }
 
-        long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
-        page = (new_vma + page_offset) & ~(page_size - 1);
-        printf(BLUE "        Page source = " GREEN "%lx " RESET, page);
-        mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
-
-        /* Copy the page pointed to by 'page' into the faulting
-           region. Vary the contents that are copied in, so that it
-           is more obvious that each fault is handled separately. */
-
-        struct uffdio_copy uffdio_copy = {
-            .src = page,
-
-            /* We need to handle page faults in units of pages(!).
-               So, round faulting address down to page boundary */
-
-            .dst = (unsigned long)msg.arg.pagefault.address & ~(page_size - 1),
-            .len = page_size,
-            .mode = 0,
-            .copy = 0
-        };
-        if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
-            errExit("ioctl-UFFDIO_COPY");
-
-        printf("(uffdio_copy.copy -> %lld)\n\n", uffdio_copy.copy);
+                serve_page(get_parent_write(parent_read), msg, new_vma,
+                           code_vma_start_addr);
+            }
+        }
     }
 }
 
 // Tell the loader to run this function once the library is loaded
 __attribute__((constructor)) int uffd_init() {
-    long uffd;     /* userfaultfd file descriptor */
     pthread_t thr; /* ID of thread that handles page faults */
     page_size = sysconf(_SC_PAGE_SIZE);
     //setup_sigsegv_handler();
@@ -124,7 +169,7 @@ __attribute__((constructor)) int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    long args[3] = {uffd, (long)new_vma, (long)code_vma_start_addr};
+    long args[2] = {(long)new_vma, (long)code_vma_start_addr};
     int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)args);
     if (s != 0) {
         errno = s;
