@@ -28,6 +28,7 @@ static long long int serve_page(int fd, struct uffd_msg msg, long new_vma,
         .mode = 0,
         .copy = 0
     };
+    printf("ioctl with fd = %d\n", fd);
     if (ioctl(fd, UFFDIO_COPY, &uffdio_copy) == -1)
         errExit("ioctl-UFFDIO_COPY");
 
