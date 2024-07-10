@@ -15,8 +15,8 @@ run3: libuffd.so
 run4: libuffd.so
 	sudo LD_PRELOAD=./libuffd.so ./test/t04
 
-libuffd.so: uffd.c vma.c sigsegv.c fork.c clean test
-	$(CC) $(CFLAGS) $< vma.c sigsegv.c fork.c -o $@
+libuffd.so: uffd.c vma.c fork.c poll.c log.c sigsegv.c clean test
+	$(CC) $(CFLAGS) $< vma.c fork.c poll.c log.c sigsegv.c -o $@
 
 test:
 	make -C test

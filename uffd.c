@@ -4,8 +4,8 @@ static int page_size;
 long uffd;
 int self_pipe_fds[2];
 
-static int serve_page(int fd, struct uffd_msg msg, long new_vma,
-                       long code_start_vma_addr) {
+static long long int serve_page(int fd, struct uffd_msg msg, long new_vma,
+                                long code_vma_start_addr) {
     /* Create a page that will be copied into the faulting region */
 
     long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
@@ -28,19 +28,20 @@ static int serve_page(int fd, struct uffd_msg msg, long new_vma,
         .mode = 0,
         .copy = 0
     };
-    if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
+    if (ioctl(fd, UFFDIO_COPY, &uffdio_copy) == -1)
         errExit("ioctl-UFFDIO_COPY");
 
     return uffdio_copy.copy;
 }
 
-void *fault_handler_thread(void *args) {
+static void *fault_handler_thread(void *args) {
     struct uffd_msg msg;                          /* Data read from userfaultfd */
     static int fault_cnt = 0;                     /* Number of faults so far handled */
     long new_vma = ((long *)args)[0];             /* offset of code VMA in executable */
     long code_vma_start_addr = ((long *)args)[1]; /* start address of code VMA */
     ssize_t nread;
-    if (pipe(self_pipe_fds[2]) == -1)
+    int nfds = 0;
+    if (pipe(self_pipe_fds) == -1)
         errExit("self pipe");
 
     printf(MAGENTA "fault_handler_thread():-\n" RESET);
@@ -51,14 +52,19 @@ void *fault_handler_thread(void *args) {
     while (1) {
         /* See what poll() tells us about the userfaultfd */
 
-        int nfds = MAX_CHILDREN;
         int nready;
-        struct pollfd poll_fds[nfds];
+        struct pollfd poll_fds[MAX_CHILDREN];
         // Add read end of the self pipe
-        poll_fds[0] = { .fd = self_pipe_fds[0], .events = POLLIN };
+        poll_fds[0] = (struct pollfd){
+            .fd = self_pipe_fds[0],
+            .events = POLLIN
+        }; ++nfds;
         // Add uffd
-        poll_fds[1] = { .fd = uffd, .events = POLLIN };
-        nready = poll(&pollfd, 1, -1);
+        poll_fds[1] = (struct pollfd){
+            .fd = uffd,
+            .events = POLLIN
+        }; ++nfds;
+        nready = poll(poll_fds, nfds, -1);
         if (nready == -1)
             errExit("poll");
         int ready_fds[nready];
@@ -68,12 +74,13 @@ void *fault_handler_thread(void *args) {
         if (fd_is_ready(self_pipe_fds[0], ready_fds, nready)) {
             int parent_read;
             read(self_pipe_fds[0], &parent_read, sizeof(parent_read));
-            add_fd(parent_read, POLLIN, poll_fds, nfds);
+            add_fd(parent_read, POLLIN, poll_fds, nfds++);
             continue;
         }
         
         // Handle page faults of the parent process
         if (fd_is_ready(uffd, ready_fds, nready)) {
+            struct pollfd pollfd = *get_pollfd(uffd, poll_fds, nfds);
             printf(MAGENTA "\n%6d. " RESET "poll() returns:"
                    "nready = %d; POLLIN = %d; POLLERR = %d\n",
                    fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
@@ -101,13 +108,14 @@ void *fault_handler_thread(void *args) {
             printf("flags = %#llx; ", msg.arg.pagefault.flags);
             printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
 
-            int uffdio_copy_copy = serve_page(uffd, msg, new_vma, code_vma_start_addr);
+            long long int uffdio_copy_copy = serve_page(uffd, msg, new_vma,
+                                                        code_vma_start_addr);
             printf("(uffdio_copy.copy -> %lld)\n\n", uffdio_copy_copy);
         }
 
         // Handle page faults of child(ren)
         for (int i = 0; i < nready; ++i) {
-            if (ready_fds[i] != uffd && ready[i] != self_pipe_fds[0]) {
+            if (ready_fds[i] != uffd && ready_fds[i] != self_pipe_fds[0]) {
                 int parent_read = ready_fds[i];
 
                 nread = read(parent_read, &msg, sizeof(msg));
@@ -122,8 +130,10 @@ void *fault_handler_thread(void *args) {
                     exit(EXIT_FAILURE);
                 }
 
-                serve_page(get_parent_write(parent_read), msg, new_vma,
+                struct child_pf_log_entry *child_info = get_log_entry(parent_read);
+                serve_page(child_info->ipc_fds.parent_write, msg, new_vma,
                            code_vma_start_addr);
+                child_info->fault_cnt++;
             }
         }
     }
