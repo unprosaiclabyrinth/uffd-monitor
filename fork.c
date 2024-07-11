@@ -2,10 +2,9 @@
 
 static fork_t real_fork = NULL;
 
-static void *fault_notifier_thread(void *args) {
+static void *fault_notifier_thread(void *arg) {
     struct uffd_msg msg;
-    __attribute__((unused)) int child_read = ((int *)args)[0];
-    int child_write = ((int *)args)[1];
+    int child_write = *(int *)arg;
     ssize_t nread;
     while (1) {
         int nready;
@@ -30,7 +29,9 @@ static void *fault_notifier_thread(void *args) {
         }
 
         // Send messsge to parent
-        write(child_write, &msg, sizeof(msg));
+        int nwritten = write(child_write, &msg, sizeof(msg));
+        if (nwritten == -1)
+            errExit("pipe-chile_write");
     }
 }
 
@@ -58,14 +59,13 @@ pid_t fork() {
     int parent_write = parent_to_child[1];
 
     // Call the original fork function
-    printf(CYAN "HIjacked! Trying to fork, are we?\n" RESET);
+    printf(CYAN "Intercepted: Trying to fork, are we?\n" RESET);
     pid_t child_pid = real_fork();
     if (child_pid == 0) {
         close(parent_read);
         close(parent_write);
         pthread_t thr;
-        int args[2] = {child_read, child_write};
-        pthread_create(&thr, NULL, fault_notifier_thread, (void *)args);
+        pthread_create(&thr, NULL, fault_notifier_thread, (void *)&child_write);
     } else {
         close(child_read);
         close(child_write);
