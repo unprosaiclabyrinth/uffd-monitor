@@ -1,4 +1,5 @@
 #include "uffd.h"
+#include <sys/socket.h>
 
 static fork_t real_fork = NULL;
 
@@ -12,26 +13,25 @@ static void *fault_notifier_thread(void *arg) {
             .fd = uffd,
             .events = POLLIN
         };
+
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
-            errExit("poll");
+            errExit(RED "notifier -> poll" RESET);
 
         nread = read(uffd, &msg, sizeof(msg));
         if (nread == 0) {
-            printf("EOF on userfaultfd!\n");
+            printf(RED "notifier -> read -> uffd: EOF!\n" RESET);
             exit(EXIT_FAILURE);
         } else if (nread == -1)
-            errExit("read");
+            errExit(RED "notifier -> read -> uffd" RESET);
 
-        if (msg.event != UFFD_EVENT_PAGEFAULT) {
-            fprintf(stderr, "Unexpected event on userfaultfd\n");
-            exit(EXIT_FAILURE);
-        }
+        assert(msg.event == UFFD_EVENT_PAGEFAULT);
 
         // Send messsge to parent
         int nwritten = write(child_write, &msg, sizeof(msg));
         if (nwritten == -1)
-            errExit("pipe-chile_write");
+            errExit(RED "notifier -> write -> child_write" RESET);
+        printf(CYAN "        %d: fault_notifier_thread() -> Notified %d bytes\n\n" RESET, getpid(), nwritten);
     }
 }
 
@@ -41,36 +41,85 @@ pid_t fork() {
     if (!real_fork) {
         real_fork = (fork_t)dlsym(RTLD_NEXT, "fork");
         if (!real_fork) {
-            fprintf(stderr, "Error in `dlsym`: %s\n", dlerror());
-            exit(1);
+            fprintf(stderr, RED "Error in `dlsym`: %s\n" RESET, dlerror());
+            exit(EXIT_FAILURE);
         }
     }
     
-    // Setup 2-way IPC using 2 pipes
+    // Setup child->parent IPC using a pipe
     int child_to_parent[2]; // read @ parent, write @ child
-    int parent_to_child[2]; // read @ child, write @ parent
     if (pipe(child_to_parent) == -1)
-        errExit("pipe-child_to_parent");
-    if (pipe(parent_to_child) == -1)
-        errExit("pipe-parent_to_child");
+        errExit(RED "fork -> pipe -> c2p" RESET);
     int parent_read = child_to_parent[0];
     int child_write = child_to_parent[1];
-    int child_read = parent_to_child[0];
-    int parent_write = parent_to_child[1];
+
+    // Setup UDS for passing uffd
+    int uds[2];
+    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uds) == -1)
+        errExit(RED "fork -> socketpair" RESET);
 
     // Call the original fork function
-    printf(CYAN "Intercepted: Trying to fork, are we?\n" RESET);
+    // printf(CYAN "Intercepted: Trying to fork, are we?\n" RESET);
     pid_t child_pid = real_fork();
     if (child_pid == 0) {
         close(parent_read);
-        close(parent_write);
+        close(uds[0]);
+
+        // Send uffd to parent
+        char buf[CMSG_SPACE(sizeof(uffd_t))];
+        char dummy = ' ';
+        struct iovec iov = {
+            .iov_base = &dummy,
+            .iov_len = sizeof(dummy)
+        };
+        struct msghdr msg = {
+            .msg_iov = &iov,
+            .msg_iovlen = 1,
+            .msg_control = buf,
+            .msg_controllen = sizeof(buf)
+        };
+
+        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(uffd_t));
+        *((uffd_t *)CMSG_DATA(cmsg)) = uffd;
+        if (sendmsg(uds[1], &msg, 0) == -1)
+            errExit("sendmsg");
+        close(uds[1]);
+
         pthread_t thr;
-        pthread_create(&thr, NULL, fault_notifier_thread, (void *)&child_write);
+        int s = pthread_create(&thr, NULL, fault_notifier_thread, (void *)&child_write);
+        if (s != 0) {
+            errno = s;
+            errExit(RED "pthread_create -> notifier" RESET);
+        }
     } else {
-        close(child_read);
         close(child_write);
-        add_log_entry(child_pid, parent_read, parent_write);
-        write(self_pipe_fds[1], &parent_read, sizeof(parent_read));
+        close(uds[1]);
+
+        // Receive uffd from child
+        char buf[CMSG_SPACE(sizeof(uffd_t))];
+        char dummy = ' ';
+        struct iovec iov = {
+            .iov_base = &dummy,
+            .iov_len = sizeof(dummy)
+        }; 
+        struct msghdr msg = {
+            .msg_iov = &iov,
+            .msg_iovlen = 1,
+            .msg_control = buf,
+            .msg_controllen = sizeof(buf)
+        };
+
+        if (recvmsg(uds[0], &msg, 0) == -1)
+            errExit("recvmsg");
+        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+        uffd_t child_uffd = *((uffd_t *)CMSG_DATA(cmsg));
+
+        add_log_entry(child_pid, child_uffd, parent_read);
+        if (write(self_pipe_fds[1], &parent_read, sizeof(parent_read)) == -1)
+            errExit(RED "fork -> write -> self_pipe" RESET);
     }
 
     // Call the original fork function

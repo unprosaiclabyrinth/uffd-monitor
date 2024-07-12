@@ -16,11 +16,12 @@ struct pollfd *get_pollfd(int fd, struct pollfd poll_fds[], int nfds) {
     return NULL;
 }
 
-void get_ready_fds(int ready_fds[], struct pollfd poll_fds[], int nready) {
+void get_ready_fds(int ready_fds[], int nready, struct pollfd poll_fds[], int nfds) {
     int i = 0, j = 0;
-    while (j < nready) {
-        if (poll_fds[i].revents & POLLIN)
+    while (j < nready && i < nfds) {
+        if (poll_fds[i].revents & POLLIN) {
             ready_fds[j++] = poll_fds[i].fd;
+        }
         ++i;
     }
 }
@@ -36,7 +37,7 @@ int fd_is_ready(int fd, int ready_fds[], int nready) {
 }
 
 void dump_poll_fds(struct pollfd poll_fds[], int nfds) {
-    printf(WHITE "Going for the poll are %d fds...:-\n", nfds);
+    printf(YELLOW "Going for the poll are %d fds...:-\n", nfds);
     for (int i = 0; i < nfds; ++i) {
         printf("%d\n", poll_fds[i].fd);
     }
