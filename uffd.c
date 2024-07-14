@@ -3,14 +3,14 @@
 static int page_size;
 uffd_t uffd;
 int self_pipe_fds[2];
+static long glob_new_vma;
+static long glob_code_vma_start_addr;
 
-static struct uffdio_copy prepare_page(struct uffd_msg msg, long new_vma,
-                                       long code_vma_start_addr) {
+static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     /* Create a page that will be copied into the faulting region */
 
-    long page_offset = msg.arg.pagefault.address - code_vma_start_addr;
-    unsigned long page = (new_vma + page_offset) & ~(page_size - 1);
-    printf(BLUE "        Page source = " GREEN "%lx " RESET, page);
+    long page_offset = msg.arg.pagefault.address - glob_code_vma_start_addr;
+    unsigned long page = (glob_new_vma + page_offset) & ~(page_size - 1);
     mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
 
     /* Copy the page pointed to by 'page' into the faulting
@@ -32,29 +32,11 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg, long new_vma,
     return uffdio_copy;
 }
 
-static void *fault_handler_thread(void *args) {
-    struct uffd_msg msg;                          /* Data read from userfaultfd */
-    static int fault_cnt = 0;                     /* Number of faults so far handled */
-    long new_vma = ((long *)args)[0];             /* offset of code VMA in executable */
-    long code_vma_start_addr = ((long *)args)[1]; /* start address of code VMA */
+void *fault_handler_thread(void *arg) {
+    struct uffd_msg msg;           /* Data read from userfaultfd */
+    int fault_cnt = 0;             /* Number of faults so far handled */
+    uffd_t this_uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
     ssize_t nread;
-    int nfds = 0;
-    if (pipe(self_pipe_fds) == -1)
-        errExit(RED "handler -> pipe -> self_pipe" RESET);
-
-    struct pollfd poll_fds[MAX_CHILDREN];
-    // Add read end of the self pipe
-    poll_fds[0] = (struct pollfd){
-        .fd = self_pipe_fds[0],
-        .events = POLLIN
-    }; ++nfds;
-    // Add uffd
-    poll_fds[1] = (struct pollfd){
-        .fd = uffd,
-        .events = POLLIN
-    }; ++nfds;
-
-    printf(MAGENTA "fault_handler_thread():-\n" RESET);
 
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
@@ -63,88 +45,51 @@ static void *fault_handler_thread(void *args) {
         /* See what poll() tells us about the userfaultfd */
 
         int nready;
-        nready = poll(poll_fds, nfds, -1);
+        struct pollfd pollfd = {
+            .fd = this_uffd,
+            .events = POLLIN
+        };
+        nready = poll(&pollfd, 1, -1);
         if (nready == -1)
-            errExit(RED "handler -> poll" RESET);
-        int ready_fds[nready];
-        get_ready_fds(ready_fds, nready, poll_fds, nfds);
+            errExit("poll");
 
-        // Poll fds update mechanism: check for self pipe read
-        if (fd_is_ready(self_pipe_fds[0], ready_fds, nready)) {
-            int parent_read;
-            if (read(self_pipe_fds[0], &parent_read, sizeof(parent_read)) == -1)
-                errExit(RED "handler -> read -> self_pipe" RESET);
-            add_fd(parent_read, POLLIN, poll_fds, nfds++);
-        }
-        
-        // Handle page faults of the parent process
-        if (fd_is_ready(uffd, ready_fds, nready)) {
-            struct pollfd pollfd = *get_pollfd(uffd, poll_fds, nfds);
-            printf(MAGENTA "\n%6d. " RESET "poll() returns: "
+        if (this_uffd == uffd)
+            printf(MAGENTA "%6d. " RESET "poll() returns: "
                    "nready = %d; POLLIN = %d; POLLERR = %d\n",
                    ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
                    (pollfd.revents & POLLERR) != 0);
+        else
+            printf(CYAN "%6d. " RESET "poll() returns: "
+                   "nready = %d; POLLIN = %d; POLLERR = %d\n",
+                   ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
+                   (pollfd.revents & POLLERR) != 0);
+        fflush(stdout);
 
-            /* Read an event from the userfaultfd */
+        /* Read an event from the userfaultfd */
 
-            nread = read(uffd, &msg, sizeof(msg));
-            if (nread == 0) {
-                printf(RED "handler -> read -> uffd: EOF!\n" RESET);
-                exit(EXIT_FAILURE);
-            } else if (nread == -1)
-                errExit(RED "handler -> read -> uffd" RESET);
+        nread = read(this_uffd, &msg, sizeof(msg));
+        if (nread == 0) {
+            printf("EOF on userfaultfd!\n");
+            exit(EXIT_FAILURE);
+        } else if (nread == -1)
+            errExit("read");
 
-            /* We expect only one kind of event; verify that assumption */
+        /* We expect only one kind of event; verify that assumption */
 
-            assert(msg.event == UFFD_EVENT_PAGEFAULT);
+        assert(msg.event == UFFD_EVENT_PAGEFAULT);
 
-            /* Display info about the page-fault event */
+        /* Display info about the page-fault event */
 
-            printf("        PAGEFAULT event: ");
-            printf("flags = %#llx; ", msg.arg.pagefault.flags);
-            printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
+        printf("        PAGEFAULT event: ");
+        printf("flags = %#llx; ", msg.arg.pagefault.flags);
+        printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
 
-            struct uffdio_copy uffdio_copy = prepare_page(msg, new_vma,
-                                                          code_vma_start_addr);
-            // Serve the page
-            if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy))
-                errExit(RED "ioctl -> UFFDIO_COPY" RESET);
-            printf("(read fd = %d, copy fd = %d)\n\n", uffd, uffd);
-        }
+        /* Serve the page */
 
-        // Handle page faults of child(ren)
-        for (int i = 0; i < nready; ++i) {
-            if (ready_fds[i] != uffd && ready_fds[i] != self_pipe_fds[0]) {
-                int parent_read = ready_fds[i];
-                struct pollfd pollfd = *get_pollfd(parent_read, poll_fds, nfds);
-                printf(MAGENTA "\n%6d. " RESET "poll() returns: "
-                       "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                       ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-                       (pollfd.revents & POLLERR) != 0);
-
-                nread = read(parent_read, &msg, sizeof(msg));
-                if (nread == 0) {
-                    printf(RED "handler -> parent_read: EOF!\n" RESET);
-                    exit(EXIT_FAILURE);
-                } else if (nread == -1)
-                    errExit(RED "handler -> read -> parent_read" RESET);
-
-                assert(msg.event == UFFD_EVENT_PAGEFAULT);
-
-                printf("        PAGEFAULT event: ");
-                printf("flags = %#llx; ", msg.arg.pagefault.flags);
-                printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
-
-                struct child_pf_log_entry *child_info = get_log_entry(parent_read);
-                struct uffdio_copy uffdio_copy = prepare_page(msg, new_vma,
-                                                              code_vma_start_addr);
-                // Serve the page
-                if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy))
-                    errExit(RED "ioctl -> UFFDIO_COPY" RESET);
-                printf("(read fd = %d, copy fd = %d)\n\n", parent_read, child_info->child_uffd);
-                child_info->fault_cnt++;
-            }
-        }
+        struct uffdio_copy uffdio_copy = prepare_page(msg);
+        printf(BLUE "        Page source = " GREEN "%llx\n\n" RESET, uffdio_copy.src);
+        if (ioctl(this_uffd, UFFDIO_COPY, &uffdio_copy) == -1)
+            errExit("ioctl-UFFDIO_COPY");
     }
 }
 
@@ -188,13 +133,14 @@ __attribute__((constructor)) int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    long args[2] = {(long)new_vma, (long)code_vma_start_addr};
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)args);
+    glob_new_vma = (long)new_vma;
+    glob_code_vma_start_addr = (long)code_vma_start_addr;
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)(long)uffd);
     if (s != 0) {
         errno = s;
         errExit(RED "pthread_create -> handler" RESET);
     }
-    printf(" pthread_create ret: %d\n\n", s);
+    printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), uffd);
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */

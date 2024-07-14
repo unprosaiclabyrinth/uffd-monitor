@@ -16,7 +16,7 @@ void get_code_vma_bounds(unsigned long *code_vma_start_addr,
 
     printf(BLUE "                PID: " YELLOW "%d\n" RESET , getpid());
     printf(BLUE "Code VMA start addr: " RESET "%#lx\n", *code_vma_start_addr);
-    printf(BLUE "  Code VMA end addr: " RESET "%#lx\n", *code_vma_end_addr);
+    printf("  Code VMA end addr: %#lx\n", *code_vma_end_addr);
 }
 
 /*
@@ -50,10 +50,9 @@ void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
 
     printf(BLUE "    Code VMA length: " YELLOW "%ld\n" RESET, len);
-    printf("       New VMA addr: %p\n", new_vma);
-    printf("       Old VMA addr: %p\n", old_vma);
+    printf(BLUE "       New VMA addr: %p\n", new_vma);
     // Drop all code pages
-    printf("        madvise ret: %d\n", madvise(old_vma, len, MADV_DONTNEED));
+    madvise(old_vma, len, MADV_DONTNEED);
 
     return new_vma;
 }

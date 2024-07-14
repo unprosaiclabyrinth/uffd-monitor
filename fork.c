@@ -3,6 +3,7 @@
 
 static fork_t real_fork = NULL;
 
+__attribute__((unused))
 static void *fault_notifier_thread(void *arg) {
     struct uffd_msg msg;
     int child_write = *(int *)arg;
@@ -88,12 +89,12 @@ pid_t fork() {
             errExit("sendmsg");
         close(uds[1]);
 
-        pthread_t thr;
-        int s = pthread_create(&thr, NULL, fault_notifier_thread, (void *)&child_write);
-        if (s != 0) {
-            errno = s;
-            errExit(RED "pthread_create -> notifier" RESET);
-        }
+        // pthread_t thr;
+        // int s = pthread_create(&thr, NULL, fault_notifier_thread, (void *)&child_write);
+        // if (s != 0) {
+        //     errno = s;
+        //     errExit(RED "pthread_create -> notifier" RESET);
+        // }
     } else {
         close(child_write);
         close(uds[1]);
@@ -118,8 +119,16 @@ pid_t fork() {
         uffd_t child_uffd = *((uffd_t *)CMSG_DATA(cmsg));
 
         add_log_entry(child_pid, child_uffd, parent_read);
-        if (write(self_pipe_fds[1], &parent_read, sizeof(parent_read)) == -1)
-            errExit(RED "fork -> write -> self_pipe" RESET);
+        // if (write(self_pipe_fds[1], &child_uffd, sizeof(child_uffd)) == -1)
+        //     errExit(RED "fork -> write -> self_pipe" RESET);
+
+        pthread_t thr;
+        int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)(long)child_uffd);
+        if (s != 0) {
+            errno = s;
+            errExit(RED "fork -> pthread_create -> handler" RESET);
+        }
+        printf(CYAN "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, child_pid, child_uffd);
     }
 
     // Call the original fork function

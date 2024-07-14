@@ -44,6 +44,8 @@ typedef int uffd_t;
 extern uffd_t uffd;            /* userfaultfd file descriptor */
 extern int self_pipe_fds[2]; /* ends of the self-pipe used to update poll_fds */
 
+void *fault_handler_thread(void *);
+
 // Custom fork to hijack calls to libc fork
 pid_t fork();
 
