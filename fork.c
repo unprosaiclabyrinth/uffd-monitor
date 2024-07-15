@@ -47,6 +47,16 @@ pid_t fork() {
             errExit("sendmsg");
 
         close(uds[1]);
+
+        struct uffdio_register uffdio_register = {
+            .range = {
+                .start = glob_code_vma_start_addr,
+                .len = glob_code_vma_end_addr - glob_code_vma_start_addr,
+            },
+            .mode = UFFDIO_REGISTER_MODE_MISSING
+        };
+        if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
+            errExit(RED "ioctl -> UFFDIO_REGISTER" RESET);
     } else {
         close(uds[1]);
 
