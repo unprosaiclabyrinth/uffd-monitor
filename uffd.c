@@ -67,7 +67,7 @@ void *fault_handler_thread(void *arg) {
             printf("EOF on userfaultfd!\n");
             exit(EXIT_FAILURE);
         } else if (nread == -1)
-            errExit("read from uffd");
+            errExit(RED "read from uffd");
 
         /* We expect only one kind of event; verify that assumption */
 
