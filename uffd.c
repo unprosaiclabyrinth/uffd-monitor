@@ -35,8 +35,10 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 void *fault_handler_thread(void *arg) {
     struct uffd_msg msg;           /* Data read from userfaultfd */
     int fault_cnt = 0;             /* Number of faults so far handled */
-    uffd_t this_uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
+    uffd_t this_uffd = *(uffd_t *)arg; /* userfaultfd file descriptor */
     ssize_t nread;
+
+    printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), this_uffd);
 
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
@@ -53,17 +55,10 @@ void *fault_handler_thread(void *arg) {
         if (nready == -1)
             errExit("poll");
 
-        if (this_uffd == uffd)
-            printf(MAGENTA "%6d. " RESET "poll() returns: "
-                   "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                   ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-                   (pollfd.revents & POLLERR) != 0);
-        else
-            printf(CYAN "%6d. " RESET "poll() returns: "
-                   "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                   ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-                   (pollfd.revents & POLLERR) != 0);
-        fflush(stdout);
+        printf(MAGENTA "%6d. " RESET "poll() returns: "
+                "nready = %d; POLLIN = %d; POLLERR = %d\n",
+                ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
+                (pollfd.revents & POLLERR) != 0);
 
         /* Read an event from the userfaultfd */
 
@@ -135,12 +130,11 @@ __attribute__((constructor)) int uffd_init() {
 
     glob_new_vma = (long)new_vma;
     glob_code_vma_start_addr = (long)code_vma_start_addr;
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)(long)uffd);
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
     if (s != 0) {
         errno = s;
         errExit(RED "pthread_create -> handler" RESET);
     }
-    printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), uffd);
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */

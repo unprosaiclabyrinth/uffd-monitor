@@ -41,32 +41,13 @@
 typedef pid_t (*fork_t)(void);
 typedef int uffd_t;
 
-extern uffd_t uffd;            /* userfaultfd file descriptor */
+extern uffd_t uffd;          /* userfaultfd file descriptor */
 extern int self_pipe_fds[2]; /* ends of the self-pipe used to update poll_fds */
 
 void *fault_handler_thread(void *);
 
 // Custom fork to hijack calls to libc fork
 pid_t fork();
-
-// Maintain a log of children's page faults
-struct child_pf_log_entry {
-    pid_t child_pid;
-    uffd_t child_uffd;
-    int parent_read;
-    int fault_cnt;
-};
-
-void add_log_entry(pid_t, uffd_t, int);
-struct child_pf_log_entry *get_log_entry(int parent_read);
-
-// Polling API
-void add_fd(int, short, struct pollfd *, int);
-struct pollfd *get_pollfd(int, struct pollfd *, int);
-void get_ready_fds(int *, int, struct pollfd *, int);
-int fd_is_ready(int, int *, int);
-void dump_poll_fds(struct pollfd *, int);
-void dump_ready_fds(int *, int);
 
 // Functions to manipulate code VMA
 void get_code_vma_bounds(unsigned long *, unsigned long *);
