@@ -38,6 +38,8 @@ void *fault_handler_thread(void *arg) {
     uffd_t this_uffd = *(uffd_t *)arg; /* userfaultfd file descriptor */
     ssize_t nread;
 
+    printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), this_uffd);
+
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
 
@@ -52,6 +54,11 @@ void *fault_handler_thread(void *arg) {
         nready = poll(&pollfd, 1, -1);
         if (nready == -1)
             errExit("poll");
+
+        if (fault_cnt != 0) {
+            ++fault_cnt;
+            continue;
+        }
 
         printf(MAGENTA "%6d. " RESET "poll() returns: "
                 "nready = %d; POLLIN = %d; POLLERR = %d\n",
@@ -134,7 +141,6 @@ __attribute__((constructor)) int uffd_init() {
         errno = s;
         errExit(RED "pthread_create -> handler" RESET);
     }
-    printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), uffd);
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */
