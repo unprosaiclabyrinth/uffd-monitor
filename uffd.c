@@ -67,7 +67,7 @@ void *fault_handler_thread(void *arg) {
             printf("EOF on userfaultfd!\n");
             exit(EXIT_FAILURE);
         } else if (nread == -1)
-            errExit("read");
+            errExit("read from uffd");
 
         /* We expect only one kind of event; verify that assumption */
 
@@ -75,9 +75,9 @@ void *fault_handler_thread(void *arg) {
 
         /* Display info about the page-fault event */
 
-        printf("        PAGEFAULT event: ");
-        printf("flags = %#llx; ", msg.arg.pagefault.flags);
-        printf(BLUE "address = " RED "%#llx\n" RESET, msg.arg.pagefault.address);
+        printf("        PAGEFAULT event: flags = %#llx; "
+               BLUE "address = " RED "%#llx\n" RESET,
+               msg.arg.pagefault.flags, msg.arg.pagefault.address);
 
         /* Serve the page */
 
