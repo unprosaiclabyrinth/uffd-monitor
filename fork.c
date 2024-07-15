@@ -68,10 +68,12 @@ pid_t fork() {
             errExit("recvmsg");
         struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
         uffd_t child_uffd = *((uffd_t *)CMSG_DATA(cmsg));
+        printf(CYAN "child_uffd: %d\n" RESET, child_uffd);
 
         close(uds[0]);
         pthread_t thr;
-        int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&child_uffd);
+        uffd_t arg[1] = { child_uffd };
+        int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)arg);
         if (s != 0) {
             errno = s;
             errExit(RED "fork -> pthread_create -> handler" RESET);

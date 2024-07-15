@@ -33,9 +33,9 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 }
 
 void *fault_handler_thread(void *arg) {
-    struct uffd_msg msg;           /* Data read from userfaultfd */
-    int fault_cnt = 0;             /* Number of faults so far handled */
-    uffd_t this_uffd = *(uffd_t *)arg; /* userfaultfd file descriptor */
+    struct uffd_msg msg;                   /* Data read from userfaultfd */
+    int fault_cnt = 0;                     /* Number of faults so far handled */
+    uffd_t this_uffd = ((uffd_t *)arg)[0]; /* userfaultfd file descriptor */
     ssize_t nread;
 
     printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), this_uffd);
@@ -82,7 +82,7 @@ void *fault_handler_thread(void *arg) {
         /* Serve the page */
 
         struct uffdio_copy uffdio_copy = prepare_page(msg);
-        printf(BLUE "        Page source = " GREEN "%llx\n\n" RESET, uffdio_copy.src);
+        printf(BLUE "        Page source = " GREEN "%llx" RESET " (uffd = %d)\n\n", uffdio_copy.src, this_uffd);
         if (ioctl(this_uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
     }
