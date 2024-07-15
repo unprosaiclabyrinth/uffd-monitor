@@ -2,9 +2,9 @@
 
 static int page_size;
 uffd_t uffd;
-int self_pipe_fds[2];
-static long glob_new_vma;
-static long glob_code_vma_start_addr;
+long glob_new_vma;
+long glob_code_vma_start_addr;
+long glob_code_vma_end_addr;
 
 static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     /* Create a page that will be copied into the faulting region */
@@ -130,6 +130,7 @@ __attribute__((constructor)) int uffd_init() {
 
     glob_new_vma = (long)new_vma;
     glob_code_vma_start_addr = (long)code_vma_start_addr;
+    glob_code_vma_end_addr = (long)code_vma_end_addr;
     int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
     if (s != 0) {
         errno = s;

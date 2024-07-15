@@ -42,7 +42,9 @@ typedef pid_t (*fork_t)(void);
 typedef int uffd_t;
 
 extern uffd_t uffd;          /* userfaultfd file descriptor */
-extern int self_pipe_fds[2]; /* ends of the self-pipe used to update poll_fds */
+extern long new_vma;
+extern long glob_code_vma_start_addr;
+extern long glob_code_vma_end_addr;
 
 void *fault_handler_thread(void *);
 
