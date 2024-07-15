@@ -2,9 +2,9 @@
 
 static int page_size;
 uffd_t uffd;
-int self_pipe_fds[2];
-static long glob_new_vma;
-static long glob_code_vma_start_addr;
+long glob_new_vma;
+long glob_code_vma_start_addr;
+long glob_code_vma_end_addr;
 
 static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     /* Create a page that will be copied into the faulting region */
@@ -35,7 +35,7 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 void *fault_handler_thread(void *arg) {
     struct uffd_msg msg;           /* Data read from userfaultfd */
     int fault_cnt = 0;             /* Number of faults so far handled */
-    uffd_t this_uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
+    uffd_t this_uffd = *(uffd_t *)arg; /* userfaultfd file descriptor */
     ssize_t nread;
 
     /* Loop, handling incoming events on the userfaultfd
@@ -53,17 +53,10 @@ void *fault_handler_thread(void *arg) {
         if (nready == -1)
             errExit("poll");
 
-        if (this_uffd == uffd)
-            printf(MAGENTA "%6d. " RESET "poll() returns: "
-                   "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                   ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-                   (pollfd.revents & POLLERR) != 0);
-        else
-            printf(CYAN "%6d. " RESET "poll() returns: "
-                   "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                   ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-                   (pollfd.revents & POLLERR) != 0);
-        fflush(stdout);
+        printf(MAGENTA "%6d. " RESET "poll() returns: "
+                "nready = %d; POLLIN = %d; POLLERR = %d\n",
+                ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
+                (pollfd.revents & POLLERR) != 0);
 
         /* Read an event from the userfaultfd */
 
@@ -87,7 +80,7 @@ void *fault_handler_thread(void *arg) {
         /* Serve the page */
 
         struct uffdio_copy uffdio_copy = prepare_page(msg);
-        printf(BLUE "        Page source = " GREEN "%llx\n\n" RESET, uffdio_copy.src);
+        printf(BLUE "        Page source = " GREEN "%llx" RESET " (PID: %d)\n\n", uffdio_copy.src, getpid());
         if (ioctl(this_uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
     }
@@ -135,7 +128,8 @@ __attribute__((constructor)) int uffd_init() {
 
     glob_new_vma = (long)new_vma;
     glob_code_vma_start_addr = (long)code_vma_start_addr;
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)(long)uffd);
+    glob_code_vma_end_addr = (long)code_vma_end_addr;
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
     if (s != 0) {
         errno = s;
         errExit(RED "pthread_create -> handler" RESET);
