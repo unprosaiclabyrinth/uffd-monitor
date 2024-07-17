@@ -17,6 +17,17 @@ pid_t fork() {
     // Call the original fork function
     pid_t child_pid = real_fork();
     if (child_pid == 0) {
+        uffd_t uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+        if (uffd == -1)
+            errExit(RED "syscall -> userfaultfd" RESET);
+
+        struct uffdio_api uffdio_api = {
+            .api = UFFD_API,
+            .features = 0
+        };
+        if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
+            errExit(RED "ioctl -> UFFDIo_API" RESET);
+
         struct uffdio_register uffdio_register = {
             .range = {
                 .start = glob_code_vma_start_addr,
@@ -31,8 +42,8 @@ pid_t fork() {
         int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
         if (s != 0) {
             errno = s;
-            errExit(RED "pthread_create -> notifier" RESET);
-        }
+            errExit(RED "pthread_create -> handler" RESET);
+        } 
     }
 
     // Call the original fork function
