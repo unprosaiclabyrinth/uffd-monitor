@@ -14,39 +14,19 @@ pid_t fork() {
         }
     }
 
-    // Setup UDS for passing uffd
-    int uds[2];
-    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uds) == -1)
-        errExit(RED "fork -> socketpair" RESET);
-
     // Call the original fork function
     pid_t child_pid = real_fork();
     if (child_pid == 0) {
-        close(uds[0]);
+        uffd_t uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+        if (uffd == -1)
+            errExit(RED "syscall -> userfaultfd" RESET);
 
-        // Send uffd to parent
-        char buf[CMSG_SPACE(sizeof(uffd_t))];
-        char dummy = ' ';
-        struct iovec iov = {
-            .iov_base = &dummy,
-            .iov_len = sizeof(dummy)
+        struct uffdio_api uffdio_api = {
+            .api = UFFD_API,
+            .features = 0
         };
-        struct msghdr msg = {
-            .msg_iov = &iov,
-            .msg_iovlen = 1,
-            .msg_control = buf,
-            .msg_controllen = sizeof(buf)
-        };
-
-        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(uffd_t));
-        *((uffd_t *)CMSG_DATA(cmsg)) = uffd;
-        if (sendmsg(uds[1], &msg, 0) == -1)
-            errExit("sendmsg");
-
-        close(uds[1]);
+        if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
+            errExit(RED "ioctl -> UFFDIo_API" RESET);
 
         struct uffdio_register uffdio_register = {
             .range = {
@@ -57,36 +37,13 @@ pid_t fork() {
         };
         if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
             errExit(RED "ioctl -> UFFDIO_REGISTER" RESET);
-    } else {
-        close(uds[1]);
 
-        // Receive uffd from child
-        char buf[CMSG_SPACE(sizeof(uffd_t))];
-        char dummy = ' ';
-        struct iovec iov = {
-            .iov_base = &dummy,
-            .iov_len = sizeof(dummy)
-        }; 
-        struct msghdr msg = {
-            .msg_iov = &iov,
-            .msg_iovlen = 1,
-            .msg_control = buf,
-            .msg_controllen = sizeof(buf)
-        };
-
-        if (recvmsg(uds[0], &msg, 0) == -1)
-            errExit("recvmsg");
-        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-        uffd_t child_uffd = *((uffd_t *)CMSG_DATA(cmsg));
-
-        close(uds[0]);
         pthread_t thr;
-        uffd_t arg[1] = { child_uffd };
-        int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)arg);
+        int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
         if (s != 0) {
             errno = s;
-            errExit(RED "fork -> pthread_create -> handler" RESET);
-        }
+            errExit(RED "pthread_create -> handler" RESET);
+        } 
     }
 
     // Call the original fork function

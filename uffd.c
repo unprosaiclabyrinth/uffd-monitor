@@ -1,7 +1,6 @@
 #include "uffd.h"
 
-static int page_size;
-uffd_t uffd;
+int page_size;
 long glob_new_vma;
 long glob_code_vma_start_addr;
 long glob_code_vma_end_addr;
@@ -33,9 +32,9 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 }
 
 void *fault_handler_thread(void *arg) {
-    struct uffd_msg msg;                   /* Data read from userfaultfd */
-    int fault_cnt = 0;                     /* Number of faults so far handled */
-    uffd_t this_uffd = ((uffd_t *)arg)[0]; /* userfaultfd file descriptor */
+    struct uffd_msg msg;           /* Data read from userfaultfd */
+    int fault_cnt = 0;             /* Number of faults so far handled */
+    uffd_t this_uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
     ssize_t nread;
 
     printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), this_uffd);
@@ -82,7 +81,9 @@ void *fault_handler_thread(void *arg) {
         /* Serve the page */
 
         struct uffdio_copy uffdio_copy = prepare_page(msg);
-        printf(BLUE "        Page source = " GREEN "%llx" RESET " (uffd = %d)\n\n", uffdio_copy.src, this_uffd);
+        printf(BLUE "        Page source = " GREEN "%llx" RESET " (PID: %d)\n"
+               BLUE "        Page content = " CYAN "%08lx\n\n" RESET,
+               uffdio_copy.src, getpid(), *(long *)uffdio_copy.src);
         if (ioctl(this_uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
     }
@@ -96,7 +97,7 @@ __attribute__((constructor)) int uffd_init() {
 
     /* Create and enable userfaultfd object */
 
-    uffd = syscall(__NR_userfaultfd, O_NONBLOCK);
+    uffd_t uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
     if (uffd == -1)
         errExit(RED "syscall -> userfaultfd" RESET);
 
@@ -128,9 +129,9 @@ __attribute__((constructor)) int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
+    glob_code_vma_start_addr = code_vma_start_addr;
+    glob_code_vma_end_addr = code_vma_end_addr;
     glob_new_vma = (long)new_vma;
-    glob_code_vma_start_addr = (long)code_vma_start_addr;
-    glob_code_vma_end_addr = (long)code_vma_end_addr;
     int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
     if (s != 0) {
         errno = s;
