@@ -35,7 +35,7 @@ void *fault_handler_thread(void *arg) {
     struct uffd_msg msg;                 /* Data read from userfaultfd */
     int fault_cnt = 0;                   /* Number of faults so far handled */
     uffd_t this_uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
-    char *mru_page = NULL;               /* Address of most recently used page */ 
+    void *mru_page = NULL;               /* Address of most recently used page */ 
     ssize_t nread;
 
     printf(MAGENTA "fault_handler_thread spawned for "
@@ -89,7 +89,7 @@ void *fault_handler_thread(void *arg) {
 
         if (mru_page != NULL)
             madvise(mru_page, page_size, MADV_DONTNEED);
-        mru_page = (char *)uffdio_copy.dst;
+        mru_page = (void *)uffdio_copy.dst;
     }
 }
 
