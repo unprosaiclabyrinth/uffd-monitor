@@ -50,7 +50,7 @@ void *setup_code_monitor(unsigned long code_vma_start_addr,
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
 
     printf(BLUE "    Code VMA length: " YELLOW "%ld\n" RESET, len);
-    printf(BLUE "       New VMA addr: " RESET "%p\n", new_vma);
+    printf(BLUE "  Code monitor addr: " RESET "%p\n\n", new_vma);
     // Drop all code pages
     madvise(old_vma, len, MADV_DONTNEED);
 

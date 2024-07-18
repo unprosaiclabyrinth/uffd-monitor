@@ -37,7 +37,10 @@ void *fault_handler_thread(void *arg) {
     uffd_t this_uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
     ssize_t nread;
 
-    printf(MAGENTA "\nfault_handler_thread spawned! PID = %d, uffd = %d\n\n" RESET, getpid(), this_uffd);
+    printf(MAGENTA "fault_handler_thread spawned for "
+           BLUE "PID = " YELLOW "%d" MAGENTA ", "
+           BLUE "uffd = " YELLOW "%d\n" RESET,
+           getpid(), this_uffd);
 
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
@@ -54,11 +57,6 @@ void *fault_handler_thread(void *arg) {
         if (nready == -1)
             errExit("poll");
 
-        printf(MAGENTA "%6d. " RESET "poll() returns: "
-                "nready = %d; POLLIN = %d; POLLERR = %d\n",
-                ++fault_cnt, nready, (pollfd.revents & POLLIN) != 0,
-                (pollfd.revents & POLLERR) != 0);
-
         /* Read an event from the userfaultfd */
 
         nread = read(this_uffd, &msg, sizeof(msg));
@@ -72,20 +70,19 @@ void *fault_handler_thread(void *arg) {
 
         assert(msg.event == UFFD_EVENT_PAGEFAULT);
 
-        /* Display info about the page-fault event */
-
-        printf("        PAGEFAULT event: flags = %#llx; "
-               BLUE "address = " RED "%#llx\n" RESET,
-               msg.arg.pagefault.flags, msg.arg.pagefault.address);
-
         /* Serve the page */
 
         struct uffdio_copy uffdio_copy = prepare_page(msg);
-        printf(BLUE "        Page source = " GREEN "%llx" RESET " (PID: %d)\n"
-               BLUE "        Page content = " CYAN "%08lx\n\n" RESET,
-               uffdio_copy.src, getpid(), *(long *)uffdio_copy.src);
         if (ioctl(this_uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
+
+        /* Display info about the page-fault event */
+
+        printf(MAGENTA "[" YELLOW "%6d" MAGENTA "/" CYAN "%4d" MAGENTA "] "
+               RESET "addr: " RED "%#llx" RESET ", "
+               RESET "src: " GREEN "%#llx" RESET ", "
+               RESET "code: " RESET "%lx\n" RESET, getpid(), ++fault_cnt,
+               msg.arg.pagefault.address, uffdio_copy.src, *(long *)uffdio_copy.src);
     }
 }
 
