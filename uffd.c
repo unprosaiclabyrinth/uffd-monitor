@@ -132,8 +132,8 @@ __attribute__((constructor)) int uffd_init() {
         errExit(RED "ioctl -> UFFDIO_REGISTER" RESET);
 
     /* Create a thread that will process the userfaultfd events */
-    start_fht(&uffd);
 
+    start_fht(&uffd);
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */
