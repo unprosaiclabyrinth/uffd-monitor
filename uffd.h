@@ -42,12 +42,12 @@ typedef pid_t (*fork_t)(void);
 typedef int uffd_t;
 
 // extern uffd_t uffd;            /* userfaultfd file descriptor */
-extern long glob_new_vma;
-extern long glob_code_vma_start_addr;
-extern long glob_code_vma_end_addr;
+extern unsigned long glob_new_vma;
+extern unsigned long glob_code_vma_start_addr;
+extern unsigned long glob_code_vma_end_addr;
 
 void *fault_handler_thread(void *);
-int uffd_init();
+void start_fht(uffd_t *);
 
 // Custom fork to hijack calls to libc fork
 pid_t fork();

@@ -1,9 +1,9 @@
 #include "uffd.h"
 
 int page_size;
-long glob_new_vma;
-long glob_code_vma_start_addr;
-long glob_code_vma_end_addr;
+unsigned long glob_new_vma;
+unsigned long glob_code_vma_start_addr;
+unsigned long glob_code_vma_end_addr;
 
 static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     /* Create a page that will be copied into the faulting region */
@@ -89,9 +89,17 @@ void *fault_handler_thread(void *arg) {
     }
 }
 
+void start_fht(uffd_t *uffd) {
+    pthread_t thr; /* ID of thread that handles page faults */
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)uffd);
+    if (s != 0) {
+        errno = s;
+        errExit(RED "pthread_create -> handler" RESET);
+    }
+}
+
 // Tell the loader to run this function once the library is loaded
 __attribute__((constructor)) int uffd_init() {
-    pthread_t thr; /* ID of thread that handles page faults */
     page_size = sysconf(_SC_PAGE_SIZE);
     //setup_sigsegv_handler();
 
@@ -112,15 +120,14 @@ __attribute__((constructor)) int uffd_init() {
        userfaultfd object. In mode, we request to track missing pages
        (i.e., pages that have not yet been faulted in). */
     
-    unsigned long code_vma_start_addr, code_vma_end_addr;
-    get_code_vma_bounds(&code_vma_start_addr, &code_vma_end_addr);
-    void *new_vma = file_backed_to_dontneed_anon(code_vma_start_addr,
-                                                 code_vma_end_addr);
+    get_code_vma_bounds(&glob_code_vma_start_addr, &glob_code_vma_end_addr);
+    glob_new_vma = (unsigned long)file_backed_to_dontneed_anon(glob_code_vma_start_addr,
+                                                               glob_code_vma_end_addr);
 
     struct uffdio_register uffdio_register = {
         .range = {
-            .start = code_vma_start_addr,
-            .len = code_vma_end_addr - code_vma_start_addr,
+            .start = glob_code_vma_start_addr,
+            .len = glob_code_vma_end_addr - glob_code_vma_start_addr,
         },
         .mode = UFFDIO_REGISTER_MODE_MISSING
     };
@@ -128,15 +135,8 @@ __attribute__((constructor)) int uffd_init() {
         errExit(RED "ioctl -> UFFDIO_REGISTER" RESET);
 
     /* Create a thread that will process the userfaultfd events */
+    start_fht(&uffd);
 
-    glob_code_vma_start_addr = code_vma_start_addr;
-    glob_code_vma_end_addr = code_vma_end_addr;
-    glob_new_vma = (long)new_vma;
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
-    if (s != 0) {
-        errno = s;
-        errExit(RED "pthread_create -> handler" RESET);
-    }
 
     /* Block for userfaultfd events on the separate created thread,
        and let this one exit and call main in the target program */

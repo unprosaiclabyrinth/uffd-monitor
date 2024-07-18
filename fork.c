@@ -19,14 +19,14 @@ pid_t fork() {
     if (child_pid == 0) {
         uffd_t uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
         if (uffd == -1)
-            errExit(RED "syscall -> userfaultfd" RESET);
+            errExit("syscall -> userfaultfd");
 
         struct uffdio_api uffdio_api = {
             .api = UFFD_API,
             .features = 0
         };
         if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
-            errExit(RED "ioctl -> UFFDIo_API" RESET);
+            errExit("ioctl -> UFFDIo_API");
 
         struct uffdio_register uffdio_register = {
             .range = {
@@ -36,14 +36,9 @@ pid_t fork() {
             .mode = UFFDIO_REGISTER_MODE_MISSING
         };
         if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
-            errExit(RED "ioctl -> UFFDIO_REGISTER" RESET);
+            errExit("ioctl -> UFFDIO_REGISTER");
 
-        pthread_t thr;
-        int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)&uffd);
-        if (s != 0) {
-            errno = s;
-            errExit(RED "pthread_create -> handler" RESET);
-        } 
+        start_fht(&uffd); 
     }
 
     // Call the original fork function

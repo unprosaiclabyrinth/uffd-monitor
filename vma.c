@@ -1,6 +1,6 @@
 #include "uffd.h"
 
-void get_code_vma_bounds(unsigned long *code_vma_start_addr, 
+void get_code_vma_bounds(unsigned long *code_vma_start_addr,
                          unsigned long *code_vma_end_addr) {
     FILE *proc_maps = fopen("/proc/self/maps", "r");
     if (proc_maps == NULL) {
