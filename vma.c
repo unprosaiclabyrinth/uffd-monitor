@@ -26,8 +26,8 @@ void get_code_vma_bounds(unsigned long *code_vma_start_addr,
     4. Drop all code pages.
     5. Return pointer to new VMA.
 */
-void *file_backed_to_dontneed_anon(unsigned long code_vma_start_addr,
-                                   unsigned long code_vma_end_addr) {
+void *setup_code_monitor(unsigned long code_vma_start_addr,
+                         unsigned long code_vma_end_addr) {
     size_t len = (size_t)(code_vma_end_addr - code_vma_start_addr);
 
     // Copy code pages to new VMA

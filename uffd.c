@@ -121,8 +121,8 @@ __attribute__((constructor)) int uffd_init() {
        (i.e., pages that have not yet been faulted in). */
     
     get_code_vma_bounds(&glob_code_vma_start_addr, &glob_code_vma_end_addr);
-    glob_new_vma = (unsigned long)file_backed_to_dontneed_anon(glob_code_vma_start_addr,
-                                                               glob_code_vma_end_addr);
+    glob_new_vma = (unsigned long)setup_code_monitor(glob_code_vma_start_addr,
+                                                     glob_code_vma_end_addr);
 
     struct uffdio_register uffdio_register = {
         .range = {

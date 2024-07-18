@@ -54,7 +54,7 @@ pid_t fork();
 
 // Functions to manipulate code VMA
 void get_code_vma_bounds(unsigned long *, unsigned long *);
-void *file_backed_to_dontneed_anon(unsigned long, unsigned long);
+void *setup_code_monitor(unsigned long, unsigned long);
 
 // SIGSEGV handler
 void sigsegv_handler(__attribute__((unused)) int, siginfo_t *,
