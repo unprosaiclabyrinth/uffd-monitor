@@ -26,7 +26,7 @@
 #define LISTENQ     1024    /* second argument to listen() */
 #define MAXLINE     1024    /* max length of a line */
 #define RIO_BUFSIZE 1024
-#define PROC_NUM    1       /* number of processes forked */
+#define PROC_NUM    2       /* number of processes forked */
 
 typedef struct {
     int rio_fd;                 /* descriptor for this buf */
