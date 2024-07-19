@@ -32,16 +32,16 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 }
 
 void *fault_handler_thread(void *arg) {
-    struct uffd_msg msg;                 /* Data read from userfaultfd */
-    int fault_cnt = 0;                   /* Number of faults so far handled */
-    uffd_t this_uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
-    void *mru_page = NULL;               /* Address of most recently used page */ 
+    struct uffd_msg msg;            /* Data read from userfaultfd */
+    int fault_cnt = 0;              /* Number of faults so far handled */
+    uffd_t uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
+    void *mru_page = NULL;          /* Address of most recently used page */ 
     ssize_t nread;
 
     printf(MAGENTA "fault_handler_thread spawned for "
            BLUE "PID = " YELLOW "%d" MAGENTA ", "
            BLUE "uffd = " YELLOW "%d\n" RESET,
-           getpid(), this_uffd);
+           getpid(), uffd);
 
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
@@ -51,7 +51,7 @@ void *fault_handler_thread(void *arg) {
 
         int nready;
         struct pollfd pollfd = {
-            .fd = this_uffd,
+            .fd = uffd,
             .events = POLLIN
         };
         nready = poll(&pollfd, 1, -1);
@@ -60,12 +60,12 @@ void *fault_handler_thread(void *arg) {
 
         /* Read an event from the userfaultfd */
 
-        nread = read(this_uffd, &msg, sizeof(msg));
+        nread = read(uffd, &msg, sizeof(msg));
         if (nread == 0) {
             printf("EOF on userfaultfd!\n");
             exit(EXIT_FAILURE);
         } else if (nread == -1)
-            errExit(RED "read from uffd");
+            errExit("read from uffd");
 
         /* We expect only one kind of event; verify that assumption */
 
@@ -74,15 +74,15 @@ void *fault_handler_thread(void *arg) {
         /* Serve the page */
 
         struct uffdio_copy uffdio_copy = prepare_page(msg);
-        if (ioctl(this_uffd, UFFDIO_COPY, &uffdio_copy) == -1)
+        if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
             errExit("ioctl-UFFDIO_COPY");
 
         /* Display info about the page-fault event */
 
-        printf(MAGENTA "[" YELLOW "%6d" MAGENTA "/" CYAN "%4d" MAGENTA "] "
+        printf(MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%4d" MAGENTA "] "
                RESET "addr: " RED "%#llx" RESET ", "
                RESET "src: " GREEN "%#llx" RESET ", "
-               RESET "code: " RESET "%lx\n" RESET, getpid(), ++fault_cnt,
+               RESET "code: " RESET "%lx\n" RESET, getpid(), uffd, ++fault_cnt,
                msg.arg.pagefault.address, uffdio_copy.src, *(long *)uffdio_copy.src);
         
         /* Drop previously loaded code page to restrict visibility to one page */
@@ -98,7 +98,7 @@ void start_fht(uffd_t *uffd) {
     int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)uffd);
     if (s != 0) {
         errno = s;
-        errExit(RED "pthread_create -> handler" RESET);
+        errExit("pthread_create -> handler");
     }
 }
 
@@ -111,14 +111,14 @@ __attribute__((constructor)) int uffd_init() {
 
     uffd_t uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
     if (uffd == -1)
-        errExit(RED "syscall -> userfaultfd" RESET);
+        errExit("syscall -> userfaultfd");
 
     struct uffdio_api uffdio_api = {
         .api = UFFD_API,
         .features = 0
     };
     if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
-        errExit(RED "ioctl -> UFFDIO_API" RESET);
+        errExit("ioctl -> UFFDIO_API");
 
     /* Register the memory range of the code pages for handling by the
        userfaultfd object. In mode, we request to track missing pages
@@ -136,7 +136,7 @@ __attribute__((constructor)) int uffd_init() {
         .mode = UFFDIO_REGISTER_MODE_MISSING
     };
     if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
-        errExit(RED "ioctl -> UFFDIO_REGISTER" RESET);
+        errExit("ioctl -> UFFDIO_REGISTER");
 
     /* Create a thread that will process the userfaultfd events */
 

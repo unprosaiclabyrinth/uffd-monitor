@@ -3,6 +3,57 @@
 
 static fork_t real_fork = NULL;
 
+// Called in child to send uffd to parent
+void send_uffd(int uffd, int send_sock) {
+    char buf[CMSG_SPACE(sizeof(uffd_t))];
+    char dummy = ' ';
+    struct iovec iov = {
+        .iov_base = &dummy,
+        .iov_len = sizeof(dummy)
+    };
+
+    struct msghdr msg = {
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+        .msg_control = buf,
+        .msg_controllen = sizeof(buf)
+    };
+
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN(sizeof(uffd_t));
+    *((uffd_t *)CMSG_DATA(cmsg)) = uffd;
+    if (sendmsg(send_sock, &msg, 0) == -1)
+        errExit("sendmsg");
+    
+    close(send_sock);
+}
+
+// Called in parent to receive uffd from child
+uffd_t recv_uffd(int recv_sock) {
+    char buf[CMSG_SPACE(sizeof(uffd_t))];
+    char dummy = ' ';
+    struct iovec iov = {
+        .iov_base = &dummy,
+        .iov_len = sizeof(dummy)
+    }; 
+    struct msghdr msg = {
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+        .msg_control = buf,
+        .msg_controllen = sizeof(buf)
+    };
+
+    if (recvmsg(recv_sock, &msg, 0) == -1) // Block
+        errExit("recvmsg");
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    uffd_t uffd = *((uffd_t *)CMSG_DATA(cmsg));
+
+    close(recv_sock);
+    return uffd;
+}
+
 // Our custom fork function
 pid_t fork() {
     // Load the original fork function if not already loaded
@@ -14,9 +65,15 @@ pid_t fork() {
         }
     }
 
+    // Setup UDS to pass uffd
+    int uds[2];
+    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uds) == -1)
+        errExit("fork -> socketpair");
+
     // Call the original fork function
     pid_t child_pid = real_fork();
     if (child_pid == 0) {
+        // Setup uffd in child
         uffd_t uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
         if (uffd == -1)
             errExit("syscall -> userfaultfd");
@@ -38,7 +95,15 @@ pid_t fork() {
         if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
             errExit("ioctl -> UFFDIO_REGISTER");
 
-        start_fht(&uffd); 
+        //start_fht(&uffd);
+        // Send uffd to parent
+        close(uds[0]);
+        send_uffd(uffd, uds[1]);
+    } else {
+        // Receive uffd from child
+        close(uds[1]);
+        uffd_t child_uffd = recv_uffd(uds[0]);
+        start_fht(&child_uffd);
     }
 
     // Call the original fork function
