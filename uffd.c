@@ -142,7 +142,7 @@ __attribute__((constructor)) int uffd_init() {
 
     start_fht(&uffd);
 
-    /* Block for userfaultfd events on the separate created thread,
-       and let this one exit and call main in the target program */
+    /* Block for userfaultfd events on the separate thread, and let
+       this one exit and call main in the application program */
     return 0;
 }
