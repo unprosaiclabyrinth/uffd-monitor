@@ -4,7 +4,7 @@
 static fork_t real_fork = NULL;
 
 // Called in child to send uffd to parent
-void send_uffd(int uffd, int send_sock) {
+static void send_uffd(int uffd, int send_sock) {
     char buf[CMSG_SPACE(sizeof(uffd_t))];
     char dummy = ' ';
     struct iovec iov = {
@@ -26,12 +26,10 @@ void send_uffd(int uffd, int send_sock) {
     *((uffd_t *)CMSG_DATA(cmsg)) = uffd;
     if (sendmsg(send_sock, &msg, 0) == -1)
         errExit("sendmsg");
-    
-    close(send_sock);
 }
 
 // Called in parent to receive uffd from child
-uffd_t recv_uffd(int recv_sock) {
+static uffd_t recv_uffd(int recv_sock) {
     char buf[CMSG_SPACE(sizeof(uffd_t))];
     char dummy = ' ';
     struct iovec iov = {
@@ -50,7 +48,6 @@ uffd_t recv_uffd(int recv_sock) {
     struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
     uffd_t uffd = *((uffd_t *)CMSG_DATA(cmsg));
 
-    close(recv_sock);
     return uffd;
 }
 
@@ -95,14 +92,15 @@ pid_t fork() {
         if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
             errExit("ioctl -> UFFDIO_REGISTER");
 
-        //start_fht(&uffd);
         // Send uffd to parent
         close(uds[0]);
         send_uffd(uffd, uds[1]);
+        close(uds[1]);
     } else {
         // Receive uffd from child
         close(uds[1]);
         uffd_t child_uffd = recv_uffd(uds[0]);
+        close(uds[0]);
         start_fht(&child_uffd);
     }
 
