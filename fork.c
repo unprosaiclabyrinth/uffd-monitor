@@ -101,6 +101,7 @@ pid_t fork() {
         close(uds[1]);
         uffd_t child_uffd = recv_uffd(uds[0]);
         close(uds[0]);
+        
         start_fht(&child_uffd);
     }
 
