@@ -17,8 +17,8 @@ run3: libuffd.so
 run4: libuffd.so
 	sudo LD_PRELOAD=./libuffd.so ./test/t04
 
-libuffd.so: uffd.c vma.c fork.c sigsegv.c spy.c parasite.h clean test
-	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c sigsegv.c -o $@ spy.c $(shell $(COMPEL) --static libs)
+libuffd.so: uffd.c vma.c fork.c log.c sigsegv.c spy.c parasite.h clean test
+	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c log.c sigsegv.c -o $@ spy.c $(shell $(COMPEL) --static libs)
 
 parasite.h: parasite.po
 	$(COMPEL) hgen -o $@ -f $<
