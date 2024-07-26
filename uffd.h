@@ -31,12 +31,12 @@
 #define MAGENTA "\033[35m"
 #define CYAN "\033[36m"
 #define WHITE "\033[37m"
-#define BRIGHT_RED "\033[39m"
-#define BRIGHT_GREEN "\033[40m"
-#define BRIGHT_YELLOW "\033[41m"
-#define BRIGHT_BLUE "\033[42m"
-#define BRIGHT_MAGENTA "\033[43m"
-#define BRIGHT_CYAN "\033[44m"
+#define BRIGHT_RED "\033[91m"
+#define BRIGHT_GREEN "\033[92m"
+#define BRIGHT_YELLOW "\033[93m"
+#define BRIGHT_BLUE "\033[94m"
+#define BRIGHT_MAGENTA "\033[95m"
+#define BRIGHT_CYAN "\033[96m"
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
@@ -76,3 +76,7 @@ struct child_fhl_entry {
     uffd_t uffd; // in parent
     void *mru_page;
 };
+
+void add_fhl_entry(pid_t, uffd_t);
+struct child_fhl_entry *get_fhl_entry_by_uffd(uffd_t);
+void dump_fhl(void);
