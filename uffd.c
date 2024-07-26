@@ -1,6 +1,6 @@
 #include "uffd.h"
 
-int page_size;
+int PAGE_SIZE;
 unsigned long glob_new_vma;
 unsigned long glob_code_vma_start_addr;
 unsigned long glob_code_vma_end_addr;
@@ -9,8 +9,8 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     /* Create a page that will be copied into the faulting region */
 
     long page_offset = msg.arg.pagefault.address - glob_code_vma_start_addr;
-    unsigned long page = (glob_new_vma + page_offset) & ~(page_size - 1);
-    mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
+    unsigned long page = (glob_new_vma + page_offset) & ~(PAGE_SIZE - 1);
+    mprotect((void *)page, PAGE_SIZE, PROT_READ | PROT_EXEC);
 
     /* Copy the page pointed to by 'page' into the faulting
     region. Vary the contents that are copied in, so that it
@@ -22,8 +22,8 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
         /* We need to handle page faults in units of pages(!).
         So, round faulting address down to page boundary */
 
-        .dst = (unsigned long)msg.arg.pagefault.address & ~(page_size - 1),
-        .len = page_size,
+        .dst = (unsigned long)msg.arg.pagefault.address & ~(PAGE_SIZE - 1),
+        .len = PAGE_SIZE,
         .mode = 0,
         .copy = 0
     };
@@ -88,7 +88,7 @@ void *fault_handler_thread(void *arg) {
         /* Drop previously loaded code page to restrict visibility to one page */
 
         if (mru_page != NULL)
-            madvise(mru_page, page_size, MADV_DONTNEED);
+            madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
         mru_page = (void *)uffdio_copy.dst;
     }
 }
@@ -103,9 +103,8 @@ void start_fht(uffd_t *uffd) {
 }
 
 // Tell the loader to run this function once the library is loaded
-__attribute__((constructor)) int uffd_init() {
-    page_size = sysconf(_SC_PAGE_SIZE);
-    //setup_sigsegv_handler();
+__attribute__((constructor)) int main() {
+    PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
 
     /* Create and enable userfaultfd object */
 

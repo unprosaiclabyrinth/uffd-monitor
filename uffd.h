@@ -31,6 +31,12 @@
 #define MAGENTA "\033[35m"
 #define CYAN "\033[36m"
 #define WHITE "\033[37m"
+#define BRIGHT_RED "\033[39m"
+#define BRIGHT_GREEN "\033[40m"
+#define BRIGHT_YELLOW "\033[41m"
+#define BRIGHT_BLUE "\033[42m"
+#define BRIGHT_MAGENTA "\033[43m"
+#define BRIGHT_CYAN "\033[44m"
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
@@ -41,7 +47,6 @@
 typedef pid_t (*fork_t)(void);
 typedef int uffd_t;
 
-// extern uffd_t uffd;            /* userfaultfd file descriptor */
 extern unsigned long glob_new_vma;
 extern unsigned long glob_code_vma_start_addr;
 extern unsigned long glob_code_vma_end_addr;
@@ -50,7 +55,7 @@ void *fault_handler_thread(void *);
 void start_fht(uffd_t *);
 
 // Custom fork to hijack calls to libc fork
-pid_t fork();
+pid_t fork(void);
 
 // Functions to manipulate code VMA
 void get_code_vma_bounds(unsigned long *, unsigned long *);
@@ -59,4 +64,15 @@ void *setup_code_monitor(unsigned long, unsigned long);
 // SIGSEGV handler
 void sigsegv_handler(__attribute__((unused)) int, siginfo_t *,
                      __attribute__((unused)) void *);
-void setup_sigsegv_handler();
+void setup_sigsegv_handler(void);
+
+// Parasite commands
+void print_vmsg(unsigned int, const char *, va_list);
+int infect(int, void *);
+
+// Structure and functions for logging
+struct child_fhl_entry {
+    int pid;
+    uffd_t uffd; // in parent
+    void *mru_page;
+};

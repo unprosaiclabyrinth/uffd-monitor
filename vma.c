@@ -9,8 +9,8 @@ void get_code_vma_bounds(unsigned long *code_vma_start_addr,
     }
     
     char line[256];
-    fgets(line, sizeof(line), proc_maps); // read line 1
-    fgets(line, sizeof(line), proc_maps); // read line 2 (.text)
+    __attribute__((unused)) char *throwaway = fgets(line, sizeof(line), proc_maps); // read line 1
+    throwaway = fgets(line, sizeof(line), proc_maps); // read line 2 (.text)
     sscanf(line, "%lx-%lx", code_vma_start_addr, code_vma_end_addr);
     fclose(proc_maps);
 

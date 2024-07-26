@@ -1,5 +1,7 @@
-CC     = gcc
-CFLAGS = -Wall -Wextra -shared -fPIC
+CC            := gcc
+CFLAGS        := -Wall -Wextra -shared -fPIC
+CFLAGS_COMPEL := -Wall -Werror -O2 -g
+COMPEL        := ./criu-3.19/compel/compel-host
 
 all: libuffd.so
 
@@ -15,14 +17,25 @@ run3: libuffd.so
 run4: libuffd.so
 	sudo LD_PRELOAD=./libuffd.so ./test/t04
 
-libuffd.so: uffd.c vma.c fork.c sigsegv.c clean test
-	$(CC) $(CFLAGS) $< vma.c fork.c sigsegv.c -o $@
+libuffd.so: uffd.c vma.c fork.c sigsegv.c spy.c parasite.h clean test
+	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c sigsegv.c -o $@ spy.c $(shell $(COMPEL) --static libs)
+
+parasite.h: parasite.po
+	$(COMPEL) hgen -o $@ -f $<
+
+parasite.po: parasite.o
+	ld $(shell $(COMPEL) ldflags) -o $@ $^ $(shell $(COMPEL) plugins)
+
+parasite.o: parasite.c
+	$(CC) $(CFLAGS_COMPEL) -c $(shell $(COMPEL) cflags) -o $@ $^
 
 test:
 	make -C test
 
 clean:
 	@rm -f libuffd.so
+	@rm -f parasite.o
+	@rm -f parasite.po
 	make -C test clean
 
 .PHONY: all run1 run2 run3 run4 test clean
