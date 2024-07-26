@@ -73,6 +73,6 @@ int infect(int pid, void *mru_page) {
     if (compel_resume_task(pid, state, state))
         err_and_ret(RED "Can't unseize task" RESET);
 
-    printf(BRIGHT_RED "Done\n" RESET);
+    printf(BRIGHT_RED "Done" RESET "\n" RESET);
     return 0;
 }
