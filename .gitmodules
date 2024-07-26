@@ -1,0 +1,3 @@
+[submodule "criu-3.19"]
+	path = criu-3.19
+	url = git@github.com:checkpoint-restore/criu.git
