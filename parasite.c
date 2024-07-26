@@ -17,7 +17,7 @@ void parasite_cleanup(void) {}
 // #define PAGE_SIZE sys_sysconf(_SC_PAGE_SIZE)
 
 int parasite_daemon_cmd(int cmd, void *arg) {
-	if (cmd == PARASITE_CMD_MADV && arg != NULL)
-		return sys_madvise(*((unsigned long *)arg), 4096, MADV_DONTNEED);
+	if (cmd == PARASITE_CMD_MADV)
+		sys_madvise(*(unsigned long *)arg, 4096, MADV_DONTNEED);
 	return 0;
 }
