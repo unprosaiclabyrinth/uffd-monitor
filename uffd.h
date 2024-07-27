@@ -61,10 +61,9 @@ pid_t fork(void);
 void get_code_vma_bounds(unsigned long *, unsigned long *);
 void *setup_code_monitor(unsigned long, unsigned long);
 
-// SIGSEGV handler
-void sigsegv_handler(__attribute__((unused)) int, siginfo_t *,
-                     __attribute__((unused)) void *);
-void setup_sigsegv_handler(void);
+// SIGCGLD handler
+void sigchld_handler(int);
+void setup_sigchld_handler(void);
 
 // Parasite commands
 void print_vmsg(unsigned int, const char *, va_list);
@@ -80,3 +79,4 @@ struct child_fhl_entry {
 void add_fhl_entry(pid_t, uffd_t);
 struct child_fhl_entry *get_fhl_entry_by_uffd(uffd_t);
 void dump_fhl(void);
+void scan_and_clean_fhl(pid_t *, int);
