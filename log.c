@@ -31,6 +31,10 @@ struct child_fhl_entry *get_fhl_entry_by_uffd(uffd_t child_uffd) {
     return NULL;
 }
 
+void scan_and_clean_fhl(__attribute__((unused)) pid_t dead_children[], __attribute__((unused)) int ndead) {
+    return;
+}
+
 void dump_fhl() {
     if (nentries > 0) {
         printf("(%d,%d)", children_fault_handler_log[0].pid, children_fault_handler_log[0].uffd);
