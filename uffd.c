@@ -32,10 +32,10 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 }
 
 void *fault_handler_thread(void *arg) {
-    struct uffd_msg msg;            /* Data read from userfaultfd */
-    int fault_cnt = 0;              /* Number of faults so far handled */
-    uffd_t uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
-    void *mru_page = NULL;          /* Address of most recently used page */
+    struct uffd_msg msg;             /* Data read from userfaultfd */
+    int fault_cnt = 0;               /* Number of faults so far handled */
+    uffd_t uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
+    void *mru_page = NULL;           /* Address of most recently used page */
     ssize_t nread;
 
     printf(MAGENTA "fault_handler_thread spawned for "
@@ -102,9 +102,9 @@ void *fault_handler_thread(void *arg) {
     }
 }
 
-void start_fht(uffd_t *uffd) {
+void start_fht(long long_uffd) {
     pthread_t thr; /* ID of thread that handles page faults */
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)uffd);
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)long_uffd);
     if (s != 0) {
         errno = s;
         errExit("pthread_create -> handler");
@@ -148,7 +148,7 @@ __attribute__((constructor)) int main() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    start_fht(&uffd);
+    start_fht(uffd);
 
     /* Block for userfaultfd events on the separate thread, and let
        this one exit and call main in the application program */

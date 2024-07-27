@@ -52,7 +52,7 @@ extern unsigned long glob_code_vma_start_addr;
 extern unsigned long glob_code_vma_end_addr;
 
 void *fault_handler_thread(void *);
-void start_fht(uffd_t *);
+void start_fht(long);
 
 // Custom fork to hijack calls to libc fork
 pid_t fork(void);

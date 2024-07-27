@@ -103,7 +103,7 @@ pid_t fork() {
         close(uds[0]);
 
         add_fhl_entry(child_pid, child_uffd);
-        start_fht(&child_uffd);
+        start_fht(child_uffd);
     }
 
     // Call the original fork function
