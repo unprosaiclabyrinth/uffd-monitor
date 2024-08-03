@@ -98,7 +98,7 @@ EOF
 # Function to run Lighttpd
 run_lighttpd() {
     # Run Lighttpd with the custom configuration and save the PID
-    ./lighttpd-$LIGHTTPD_VERSION/src/lighttpd -f $CUSTOM_CONFIG_FILE
+    ./lighttpd-$LIGHTTPD_VERSION/src/lighttpd -f $CUSTOM_CONFIG_FILE -D
 
     echo "Lighttpd is running with the custom configuration file: $CUSTOM_CONFIG_FILE"
     echo "Access the server at http://localhost:8888"

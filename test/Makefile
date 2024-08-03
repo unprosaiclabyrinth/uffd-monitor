@@ -16,5 +16,10 @@ t03: t03.c
 t04: t04.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+t05:
+	make -C t05 build
+
 clean:
 	@rm -f $(SRC)
+
+.PHONY: all t01 t02 t03 t04 clean
