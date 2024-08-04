@@ -87,18 +87,24 @@ void *fault_handler_thread(void *arg) {
         
         /* Drop previously loaded code page to restrict visibility to one page */
 
-        struct child_fhl_entry *fhle = get_fhl_entry_by_uffd(uffd);
-        if (fhle == NULL) {
-            // parent case
+        #if PARASITE
+            struct child_fhl_entry *fhle = get_fhl_entry_by_uffd(uffd);
+            if (fhle == NULL) {
+                // parent case
+                if (mru_page != NULL)
+                    madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
+                mru_page = (void *)uffdio_copy.dst;
+            } else {
+                // child case
+                if (fhle->mru_page != NULL)
+                    infect(fhle->pid, (void *)uffdio_copy.dst); // parasite invocation
+                fhle->mru_page = (void *)uffdio_copy.dst;
+            }
+        #else
             if (mru_page != NULL)
                 madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
             mru_page = (void *)uffdio_copy.dst;
-        } else {
-            // child case
-            if (fhle->mru_page != NULL)
-                infect(fhle->pid, (void *)uffdio_copy.dst); // parasite invocation
-            fhle->mru_page = (void *)uffdio_copy.dst;
-        }
+        #endif
     }
 }
 
