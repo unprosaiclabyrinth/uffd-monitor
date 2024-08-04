@@ -1,6 +1,6 @@
 #include "uffd.h"
 
-int page_size;
+int PAGE_SIZE;
 unsigned long glob_new_vma;
 unsigned long glob_code_vma_start_addr;
 unsigned long glob_code_vma_end_addr;
@@ -9,8 +9,8 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     /* Create a page that will be copied into the faulting region */
 
     long page_offset = msg.arg.pagefault.address - glob_code_vma_start_addr;
-    unsigned long page = (glob_new_vma + page_offset) & ~(page_size - 1);
-    mprotect((void *)page, page_size, PROT_READ | PROT_EXEC);
+    unsigned long page = (glob_new_vma + page_offset) & ~(PAGE_SIZE - 1);
+    mprotect((void *)page, PAGE_SIZE, PROT_READ | PROT_EXEC);
 
     /* Copy the page pointed to by 'page' into the faulting
     region. Vary the contents that are copied in, so that it
@@ -22,8 +22,8 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
         /* We need to handle page faults in units of pages(!).
         So, round faulting address down to page boundary */
 
-        .dst = (unsigned long)msg.arg.pagefault.address & ~(page_size - 1),
-        .len = page_size,
+        .dst = (unsigned long)msg.arg.pagefault.address & ~(PAGE_SIZE - 1),
+        .len = PAGE_SIZE,
         .mode = 0,
         .copy = 0
     };
@@ -32,10 +32,10 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 }
 
 void *fault_handler_thread(void *arg) {
-    struct uffd_msg msg;            /* Data read from userfaultfd */
-    int fault_cnt = 0;              /* Number of faults so far handled */
-    uffd_t uffd = *((uffd_t *)arg); /* userfaultfd file descriptor */
-    void *mru_page = NULL;          /* Address of most recently used page */
+    struct uffd_msg msg;             /* Data read from userfaultfd */
+    int fault_cnt = 0;               /* Number of faults so far handled */
+    uffd_t uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
+    void *mru_page = NULL;           /* Address of most recently used page */
     ssize_t nread;
 
     printf(MAGENTA "fault_handler_thread spawned for "
@@ -87,15 +87,24 @@ void *fault_handler_thread(void *arg) {
         
         /* Drop previously loaded code page to restrict visibility to one page */
 
-        if (mru_page != NULL)
-            madvise(mru_page, page_size, MADV_DONTNEED);
-        mru_page = (void *)uffdio_copy.dst;
+        struct child_fhl_entry *fhle = get_fhl_entry_by_uffd(uffd);
+        if (fhle == NULL) {
+            // parent case
+            if (mru_page != NULL)
+                madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
+            mru_page = (void *)uffdio_copy.dst;
+        } else {
+            // child case
+            if (fhle->mru_page != NULL)
+                infect(fhle->pid, (void *)uffdio_copy.dst); // parasite invocation
+            fhle->mru_page = (void *)uffdio_copy.dst;
+        }
     }
 }
 
-void start_fht(uffd_t *uffd) {
+void start_fht(long long_uffd) {
     pthread_t thr; /* ID of thread that handles page faults */
-    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)uffd);
+    int s = pthread_create(&thr, NULL, fault_handler_thread, (void *)long_uffd);
     if (s != 0) {
         errno = s;
         errExit("pthread_create -> handler");
@@ -103,9 +112,9 @@ void start_fht(uffd_t *uffd) {
 }
 
 // Tell the loader to run this function once the library is loaded
-__attribute__((constructor)) int uffd_init() {
-    page_size = sysconf(_SC_PAGE_SIZE);
-    //setup_sigsegv_handler();
+__attribute__((constructor)) int main() {
+    setup_sigchld_handler();
+    PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
 
     /* Create and enable userfaultfd object */
 
@@ -140,7 +149,7 @@ __attribute__((constructor)) int uffd_init() {
 
     /* Create a thread that will process the userfaultfd events */
 
-    start_fht(&uffd);
+    start_fht(uffd);
 
     /* Block for userfaultfd events on the separate thread, and let
        this one exit and call main in the application program */
