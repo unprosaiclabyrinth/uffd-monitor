@@ -16,8 +16,5 @@ t03: t03.c
 t04: t04.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-t05:
-	make -C t05 build
-
 clean:
 	@rm -f $(SRC)
