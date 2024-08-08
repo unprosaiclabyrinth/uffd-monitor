@@ -38,6 +38,7 @@ test:
 
 clean:
 	@rm -f libuffd.so
+	@rm -f parasite.h
 	@rm -f parasite.o
 	@rm -f parasite.po
 	make -C test clean
