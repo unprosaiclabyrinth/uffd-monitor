@@ -118,7 +118,7 @@ void start_fht(long long_uffd) {
 }
 
 // Tell the loader to run this function once the library is loaded
-__attribute__((constructor)) int main() {
+__attribute__((constructor)) int uffd_init() {
     setup_sigchld_handler();
     PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
 
