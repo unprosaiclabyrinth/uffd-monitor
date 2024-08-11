@@ -55,8 +55,12 @@ void *fault_handler_thread(void *arg) {
             .events = POLLIN
         };
         nready = poll(&pollfd, 1, -1);
-        if (nready == -1)
-            errExit("poll");
+        if (nready == -1) {
+            if (errno == EINTR)
+                continue;
+            else
+                errExit("poll");
+        }
 
         /* Read an event from the userfaultfd */
 
