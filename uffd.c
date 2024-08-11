@@ -83,7 +83,7 @@ void *fault_handler_thread(void *arg) {
 
         /* Display info about the page-fault event */
 
-        printf(MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%4d" MAGENTA "] "
+        printf(MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%6d" MAGENTA "] "
                RESET "addr: " RED "%#llx" RESET ", "
                RESET "src: " GREEN "%#llx" RESET ", "
                RESET "code: " RESET "%lx\n" RESET, getpid(), uffd, ++fault_cnt,

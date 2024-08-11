@@ -5,6 +5,10 @@ struct child_fhl_entry children_fault_handler_log[MAX_CHILDREN];
 int nentries = 0;
 
 void add_fhl_entry(pid_t child_pid, uffd_t child_uffd) {
+    // initialize log to zero if first enry is being added
+    if (nentries == 0)
+        memset(children_fault_handler_log, 0, sizeof(children_fault_handler_log));
+
     // if uffd already exists in log (reused),
     // update log entry
     for (int i = 0; i < nentries; ++i) {
@@ -31,8 +35,28 @@ struct child_fhl_entry *get_fhl_entry_by_uffd(uffd_t child_uffd) {
     return NULL;
 }
 
-void scan_and_clean_fhl(__attribute__((unused)) pid_t dead_children[], __attribute__((unused)) int ndead) {
-    return;
+void scan_and_clean_fhl(pid_t dead_children[], int ndead) {
+    int j = 0;
+    int found;
+
+    for (int e = 0; e < nentries; ++e) {
+        found = 0;
+
+        for (int d = 0; d < ndead; ++d) {
+            if (children_fault_handler_log[e].pid == dead_children[d]) {
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found)
+            children_fault_handler_log[j++] = children_fault_handler_log[e];
+    }
+
+    for (int i = j; i < nentries; ++i) {
+        memset(&children_fault_handler_log[i], 0, sizeof(struct child_fhl_entry));
+    }
+    nentries = j;
 }
 
 void dump_fhl() {
