@@ -2,7 +2,7 @@ CC		= gcc
 CFLAGS	= -g -O2
 SRC		= t01 t02 t03 t04
 
-all: $(SRC) t06
+all: $(SRC) t05 t06
 
 t01: t01.c
 	$(CC) $(CFLAGS) -o $@ $<
