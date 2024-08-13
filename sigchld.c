@@ -15,7 +15,7 @@ void sigchld_handler(__attribute__((unused)) int signo) {
         }
     }
 
-    scan_and_clean_fhl(dead_children, ndead);
+    scan_and_clean_log(dead_children, ndead);
 }
 
 void setup_sigchld_handler() {
