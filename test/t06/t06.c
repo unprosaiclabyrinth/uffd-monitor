@@ -68,6 +68,12 @@ mime_map meme_types [] = {
 
 char *default_mime_type = "text/plain";
 
+__attribute__((section(".log_access_section")))
+void log_access(int status, struct sockaddr_in *c_addr, http_request *req){
+    printf("%s:%d %d - %s\n", inet_ntoa(c_addr->sin_addr),
+           ntohs(c_addr->sin_port), status, req->filename);
+}
+
 void rio_readinitb(rio_t *rp, int fd){
     rp->rio_fd = fd;
     rp->rio_cnt = 0;
@@ -220,7 +226,6 @@ static const char* get_mime_type(char *filename){
     return default_mime_type;
 }
 
-
 int open_listenfd(int port){
     int listenfd, optval=1;
     struct sockaddr_in serveraddr;
@@ -304,12 +309,6 @@ void parse_request(int fd, http_request *req){
         }
     }
     url_decode(filename, req->filename, MAXLINE);
-}
-
-
-void log_access(int status, struct sockaddr_in *c_addr, http_request *req){
-    printf("%s:%d %d - %s\n", inet_ntoa(c_addr->sin_addr),
-           ntohs(c_addr->sin_port), status, req->filename);
 }
 
 void client_error(int fd, int status, char *msg, char *longmsg){
