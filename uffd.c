@@ -32,16 +32,18 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
 }
 
 void *fault_handler_thread(void *arg) {
-    struct uffd_msg msg;             /* Data read from userfaultfd */
-    int fault_cnt = 0;               /* Number of faults so far handled */
+    struct uffd_msg msg;             /* data read from userfaultfd */
+    int fault_cnt = 0;               /* number of faults so far handled */
     uffd_t uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
-    void *mru_page = NULL;           /* Address of most recently used page */
     ssize_t nread;
+
+    struct child_proc_info *proc_info = get_proc_info_by_uffd(uffd);
+    pid_t pid = proc_info == NULL ? getpid() : proc_info->pid; /* PID */
+    void *mru_page = NULL;           /* address of most recently used page */
 
     printf(MAGENTA "fault_handler_thread spawned for "
            BLUE "PID = " YELLOW "%d" MAGENTA ", "
-           BLUE "uffd = " YELLOW "%d\n" RESET,
-           getpid(), uffd);
+           BLUE "uffd = " YELLOW "%d\n" RESET, pid, uffd);
 
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
@@ -86,23 +88,22 @@ void *fault_handler_thread(void *arg) {
         fprintf(stderr, MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%06d" MAGENTA "] "
                         RESET "addr: " RED "%#llx" RESET ", "
                         RESET "src: " GREEN "%#llx" RESET ", "
-                        RESET "code: " RESET "%lx\n" RESET, getpid(), uffd, ++fault_cnt,
+                        RESET "code: " RESET "%lx\n" RESET, pid, uffd, ++fault_cnt,
                         msg.arg.pagefault.address, uffdio_copy.src, *(long *)uffdio_copy.src);
         
         /* Drop previously loaded code page to restrict visibility to one page */
 
         #if PARASITE
-            struct child_fhl_entry *fhle = get_fhl_entry_by_uffd(uffd);
-            if (fhle == NULL) {
+            if (proc_info == NULL) {
                 // parent case
                 if (mru_page != NULL)
                     madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
                 mru_page = (void *)uffdio_copy.dst;
             } else {
                 // child case
-                if (fhle->mru_page != NULL)
-                    infect(fhle->pid, (void *)uffdio_copy.dst); // parasite invocation
-                fhle->mru_page = (void *)uffdio_copy.dst;
+                if (proc_info->mru_page != NULL)
+                    infect(pid, (void *)uffdio_copy.dst); // parasite invocation
+                proc_info->mru_page = (void *)uffdio_copy.dst;
             }
         #else
             if (mru_page != NULL)

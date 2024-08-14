@@ -70,13 +70,13 @@ void print_vmsg(unsigned int, const char *, va_list);
 int infect(int, void *);
 
 // Structure and functions for logging
-struct child_fhl_entry {
+struct child_proc_info {
     int pid;
     uffd_t uffd; // in parent
     void *mru_page;
 };
 
-void add_fhl_entry(pid_t, uffd_t);
-struct child_fhl_entry *get_fhl_entry_by_uffd(uffd_t);
-void dump_fhl(void);
-void scan_and_clean_fhl(pid_t *, int);
+void add_log_entry(pid_t, uffd_t);
+struct child_proc_info *get_proc_info_by_uffd(uffd_t);
+void dump_log(void);
+void scan_and_clean_log(pid_t *, int);
