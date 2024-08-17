@@ -102,7 +102,7 @@ static void *fault_handler_thread(void *arg) {
             void *evicted = add_cache_entry((void *)uffdio_copy.dst, mru_page_cache, &nentries);
             if (evicted)
                 madvise(evicted, PAGE_SIZE, MADV_DONTNEED);
-            dump_cache(mru_page_cache, nentries);
+            //dump_cache(mru_page_cache, nentries);
         } else {
             // child case
             if (proc_info->mru_page != NULL)
