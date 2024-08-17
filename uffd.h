@@ -51,10 +51,10 @@ extern unsigned long glob_new_vma;
 extern unsigned long glob_code_vma_start_addr;
 extern unsigned long glob_code_vma_end_addr;
 
-void *fault_handler_thread(void *);
+// Starts the fault handler thread with given uffd 
 void start_fht(long);
 
-// Custom fork to hijack calls to libc fork
+// Custom fork hook to hijack calls to libc fork
 pid_t fork(void);
 
 // Functions to manipulate code VMA
@@ -78,5 +78,6 @@ struct child_proc_info {
 
 void add_log_entry(pid_t, uffd_t);
 struct child_proc_info *get_proc_info_by_uffd(uffd_t);
+struct child_proc_info *get_proc_info_by_pid(pid_t);
 void dump_log(void);
-void scan_and_clean_log(pid_t *, int);
+void mark_as_removed(pid_t *, int);

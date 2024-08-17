@@ -31,7 +31,7 @@ static struct uffdio_copy prepare_page(struct uffd_msg msg) {
     return uffdio_copy;
 }
 
-void *fault_handler_thread(void *arg) {
+static void *fault_handler_thread(void *arg) {
     struct uffd_msg msg;             /* data read from userfaultfd */
     int fault_cnt = 0;               /* number of faults so far handled */
     uffd_t uffd = (uffd_t)(long)arg; /* userfaultfd file descriptor */
