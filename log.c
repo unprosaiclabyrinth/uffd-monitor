@@ -23,18 +23,19 @@ void add_log_entry(pid_t child_pid, uffd_t child_uffd) {
         if (children_fault_handler_log[i].pid == -1) {
             children_fault_handler_log[i].pid = child_pid;
             children_fault_handler_log[i].uffd = child_uffd;
-            children_fault_handler_log[i].mru_page = NULL;
+            // MRU page queue already zeroed out when marking as removed
+            // along with the counter for number of addresses
             ++nentries;
             return;
         }
     }
 
     // else, add new entry
-    struct child_proc_info new_entry = {
-        .pid = child_pid,
-        .uffd = child_uffd,
-        .mru_page = NULL
-    };
+    struct child_proc_info new_entry;
+    new_entry.pid = child_pid;
+    new_entry.uffd = child_uffd;
+    memset(new_entry.mru_page_queue, 0, sizeof(new_entry.mru_page_queue));
+    new_entry.naddrs = 0;
     children_fault_handler_log[nelems++] = new_entry;
     ++nentries;
 }
@@ -47,7 +48,7 @@ struct child_proc_info *get_proc_info_by_uffd(uffd_t child_uffd) {
     return NULL;
 }
 
-struct child_proc_info *get_proc_info_by_pid(pid_t child_pid) {
+static struct child_proc_info *get_proc_info_by_pid(pid_t child_pid) {
     for (int i = 0; i < nelems; ++i) {
         if (children_fault_handler_log[i].pid == child_pid)
             return &children_fault_handler_log[i];
@@ -60,7 +61,8 @@ void mark_as_removed(pid_t dead_children[], int ndead) {
         struct child_proc_info *proc_info = get_proc_info_by_pid(dead_children[i]);
         proc_info->pid = -1;
         proc_info->uffd = -1;
-        proc_info->mru_page = NULL;
+        memset(proc_info->mru_page_queue, 0, sizeof(proc_info->mru_page_queue));
+        proc_info->naddrs = 0;
         --nentries;
     }
 }

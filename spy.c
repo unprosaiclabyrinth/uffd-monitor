@@ -13,7 +13,7 @@ void print_vmsg(unsigned int lvl, const char *fmt, va_list parms) {
     vprintf(fmt, parms);
 }
 
-int infect(int pid, void *mru_page) {
+int infect(int pid, void *addr) {
     #define err_and_ret(msg)      \
         do {                      \
             fprintf(stderr, msg); \
@@ -43,7 +43,7 @@ int infect(int pid, void *mru_page) {
     #if VERBOSE_PARASITE
         printf(BRIGHT_BLUE "Calling madvise..." RESET);
     #endif
-    if (compel_syscall(ctl, __NR_madvise, &ret, (unsigned long)mru_page, PAGE_SIZE, MADV_DONTNEED, 0, 0, 0) < 0)
+    if (compel_syscall(ctl, __NR_madvise, &ret, (unsigned long)addr, PAGE_SIZE, MADV_DONTNEED, 0, 0, 0) < 0)
 		err_and_ret(RED "Can't run rmadvise" RESET "\n");
     #if VERBOSE_PARASITE
 	    printf(BRIGHT_BLUE "Remote madvise returned %ld" RESET "\n", ret);

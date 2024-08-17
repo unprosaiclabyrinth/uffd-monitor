@@ -1,7 +1,7 @@
 #include "uffd.h"
 
 // Dequeues: removes first entry
-void *dequeue(void *queue[], int *pnentries) {
+static void *dequeue(void *queue[], int *pnentries) {
     void *ret = *pnentries == 0 ? NULL : queue[0];
     for (int i = 1; i < *pnentries; ++i) {
         queue[i - 1] = queue[i]; 

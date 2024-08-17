@@ -42,7 +42,7 @@ static void *fault_handler_thread(void *arg) {
 
     // queue variables
     void *mru_page_queue[FIFO_SIZE]; // maintain LRU order, 0 = LRU
-    int nentries = 0;
+    int naddrs = 0;
     memset(mru_page_queue, 0, sizeof(mru_page_queue));
 
     printf(MAGENTA "fault_handler_thread spawned for "
@@ -99,14 +99,14 @@ static void *fault_handler_thread(void *arg) {
 
         if (proc_info == NULL) {
             // parent case
-            void *evicted = enqueue((void *)uffdio_copy.dst, mru_page_queue, &nentries);
+            void *evicted = enqueue((void *)uffdio_copy.dst, mru_page_queue, &naddrs);
             if (evicted)
                 madvise(evicted, PAGE_SIZE, MADV_DONTNEED);
         } else {
             // child case
-            if (proc_info->mru_page != NULL)
-                infect(pid, (void *)uffdio_copy.dst); // parasite invocation
-            proc_info->mru_page = (void *)uffdio_copy.dst;
+            void *evicted = enqueue((void *)uffdio_copy.dst, proc_info->mru_page_queue, &proc_info->naddrs);
+            if (evicted)
+                infect(pid, evicted); // (parasite) remote madvise invocation
         }
     }
 }
