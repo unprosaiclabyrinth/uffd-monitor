@@ -26,31 +26,43 @@ int infect(int pid, void *mru_page) {
 
     compel_log_init(print_vmsg, COMPEL_LOG_DEBUG);
 
-    printf(BRIGHT_RED "Stopping task\n" RESET);
+    #if VERBOSE_PARASITE
+        printf(BRIGHT_RED "Stopping task\n" RESET);
+    #endif
     state = compel_stop_task(pid);
     if (state < 0)
-        err_and_ret(RED "Can't stop task" RESET);
+        err_and_ret(RED "Can't stop task" RESET "\n");
 
-    printf(BRIGHT_RED "Preparing parasite ctl\n" RESET);
+    #if VERBOSE_PARASITE
+        printf(BRIGHT_RED "Preparing parasite ctl" RESET "\n");
+    #endif
     ctl = compel_prepare(pid);
     if (!ctl)
-        err_and_ret(RED "Can't prepare for infection" RESET);
+        err_and_ret(RED "Can't prepare for infection" RESET "\n");
 
-    printf(BRIGHT_BLUE "Calling madvise\n" RESET);
+    #if VERBOSE_PARASITE
+        printf(BRIGHT_BLUE "Calling madvise..." RESET);
+    #endif
     if (compel_syscall(ctl, __NR_madvise, &ret, (unsigned long)mru_page, PAGE_SIZE, MADV_DONTNEED, 0, 0, 0) < 0)
-		err_and_ret("Can't run rmadvise");
-	printf(BRIGHT_BLUE "Remote madvise returned %ld" RESET "\n", ret);
+		err_and_ret(RED "Can't run rmadvise" RESET "\n");
+    #if VERBOSE_PARASITE
+	    printf(BRIGHT_BLUE "Remote madvise returned %ld" RESET "\n", ret);
+    #endif
 
     /*
     * Done. Cure and resume the task.
     */
-    printf(BRIGHT_RED "Curing\n" RESET);
+    #if VERBOSE_PARASITE
+        printf(BRIGHT_RED "Curing\n" RESET);
+    #endif
     if (compel_cure(ctl))
-        err_and_ret(RED "Can't cure victim" RESET);
+        err_and_ret(RED "Can't cure victim" RESET "\n");
 
     if (compel_resume_task(pid, state, state))
-        err_and_ret(RED "Can't unseize task" RESET);
+        err_and_ret(RED "Can't unseize task" RESET "\n");
 
-    printf(BRIGHT_RED "Done!" RESET "\n");
+    #if VERBOSE_PARASITE
+        printf(BRIGHT_RED "Done!" RESET "\n");
+    #endif
     return 0;
 }

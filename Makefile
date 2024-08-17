@@ -25,7 +25,7 @@ run6: libuffd.so
 	sudo LD_PRELOAD=./$< ./test/t06/t06
 
 libuffd.so: uffd.c vma.c fork.c log.c sigchld.c spy.c clean test
-	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c log.c sigchld.c -o $@ spy.c $(shell $(COMPEL) --static libs) -DPARASITE
+	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c log.c sigchld.c -o $@ spy.c $(shell $(COMPEL) --static libs)
 
 test:
 	make -C test

@@ -93,23 +93,17 @@ void *fault_handler_thread(void *arg) {
         
         /* Drop previously loaded code page to restrict visibility to one page */
 
-        #if PARASITE
-            if (proc_info == NULL) {
-                // parent case
-                if (mru_page != NULL)
-                    madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
-                mru_page = (void *)uffdio_copy.dst;
-            } else {
-                // child case
-                if (proc_info->mru_page != NULL)
-                    infect(pid, (void *)uffdio_copy.dst); // parasite invocation
-                proc_info->mru_page = (void *)uffdio_copy.dst;
-            }
-        #else
+        if (proc_info == NULL) {
+            // parent case
             if (mru_page != NULL)
                 madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
             mru_page = (void *)uffdio_copy.dst;
-        #endif
+        } else {
+            // child case
+            if (proc_info->mru_page != NULL)
+                infect(pid, (void *)uffdio_copy.dst); // parasite invocation
+            proc_info->mru_page = (void *)uffdio_copy.dst;
+        }
     }
 }
 
