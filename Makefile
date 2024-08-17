@@ -24,25 +24,14 @@ run5: libuffd.so
 run6: libuffd.so
 	sudo LD_PRELOAD=./$< ./test/t06/t06
 
-libuffd.so: uffd.c vma.c fork.c log.c sigchld.c spy.c parasite.h clean test
-	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c log.c sigchld.c -o $@ spy.c $(shell $(COMPEL) --static libs)
-
-parasite.h: parasite.po
-	$(COMPEL) hgen -o $@ -f $<
-
-parasite.po: parasite.o
-	ld $(shell $(COMPEL) ldflags) -o $@ $^ $(shell $(COMPEL) plugins)
-
-parasite.o: parasite.c
-	$(CC) $(CFLAGS_COMPEL) -c $(shell $(COMPEL) cflags) -o $@ $^
+libuffd.so: uffd.c vma.c fork.c log.c sigchld.c spy.c clean test
+	$(CC) $(CFLAGS) $(CFLAGS_COMPEL) $(shell $(COMPEL) includes) $< vma.c fork.c log.c sigchld.c -o $@ spy.c $(shell $(COMPEL) --static libs) -DPARASITE
 
 test:
 	make -C test
 
 clean:
 	@rm -f libuffd.so
-	@rm -f parasite.o
-	@rm -f parasite.po
 	make -C test clean
 
 .PHONY: all run1 run2 run3 run4 run5 run6 test clean
