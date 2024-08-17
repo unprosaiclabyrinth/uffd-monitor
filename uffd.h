@@ -39,7 +39,6 @@
 #define BRIGHT_CYAN "\033[96m"
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
 #define MAX_CHILDREN 1000
 
 // Function pointer to hold the address of the original fork function
@@ -47,6 +46,7 @@
 typedef pid_t (*fork_t)(void);
 typedef int uffd_t;
 
+extern int PAGE_SIZE;
 extern unsigned long glob_new_vma;
 extern unsigned long glob_code_vma_start_addr;
 extern unsigned long glob_code_vma_end_addr;
