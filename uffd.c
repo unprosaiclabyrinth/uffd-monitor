@@ -39,7 +39,11 @@ static void *fault_handler_thread(void *arg) {
 
     struct child_proc_info *proc_info = get_proc_info_by_uffd(uffd);
     pid_t pid = proc_info == NULL ? getpid() : proc_info->pid; /* PID */
-    void *mru_page = NULL;           /* address of most recently used page */
+
+    // cache variables
+    void *mru_page_cache[CACHE_SIZE]; // maintain LRU order, 0 = LRU
+    int nentries = 0;
+    memset(mru_page_cache, 0, sizeof(mru_page_cache));
 
     printf(MAGENTA "fault_handler_thread spawned for "
            BLUE "PID = " YELLOW "%d" MAGENTA ", "
@@ -95,9 +99,10 @@ static void *fault_handler_thread(void *arg) {
 
         if (proc_info == NULL) {
             // parent case
-            if (mru_page != NULL)
-                madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
-            mru_page = (void *)uffdio_copy.dst;
+            void *evicted = add_cache_entry((void *)uffdio_copy.dst, mru_page_cache, &nentries);
+            if (evicted)
+                madvise(evicted, PAGE_SIZE, MADV_DONTNEED);
+            dump_cache(mru_page_cache, nentries);
         } else {
             // child case
             if (proc_info->mru_page != NULL)
