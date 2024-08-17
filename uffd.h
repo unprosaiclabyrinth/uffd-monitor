@@ -40,7 +40,7 @@
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define MAX_CHILDREN 1000 // maximum number of children supported by this tool
-#define CACHE_SIZE 10     // maximum number of pages in the MRU page cache
+#define FIFO_SIZE 10 // maximum number of pages in the MRU page queue (= max code visibility)
 
 // Function pointer to hold the address of the original fork function
 // used in fork hijack
@@ -66,10 +66,10 @@ void *setup_code_monitor(unsigned long, unsigned long);
 void print_vmsg(unsigned int, const char *, va_list);
 int infect(int, void *);
 
-// Page cache API
-void *evict_cache_entry(int, void **, int *);
-void *add_cache_entry(void *, void **, int *);
-void dump_cache(void **, int);
+// Page FIFO queue API
+void *dequeue(void **, int *);
+void *enqueue(void *, void **, int *);
+void dump_queue(void **, int);
 
 // Structure and functions for logging
 struct child_proc_info {
