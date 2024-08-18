@@ -101,7 +101,7 @@ static void *fault_handler_thread(void *arg) {
         } else {
             // child case
             if (proc_info->mru_page != NULL)
-                infect(pid, (void *)uffdio_copy.dst); // parasite invocation
+                infect(pid, proc_info->mru_page); // parasite invocation
             proc_info->mru_page = (void *)uffdio_copy.dst;
         }
     }
