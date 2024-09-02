@@ -8,7 +8,7 @@ sudo apt install -y libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protob
 ```
 Build CRIU v3.19:
 ```
-git submodule update --init
+git submodule update --init --recursive
 make -C criu-3.19 -j`nproc`
 ```
 
