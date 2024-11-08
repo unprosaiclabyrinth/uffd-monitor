@@ -39,7 +39,11 @@ static void *fault_handler_thread(void *arg) {
 
     struct child_proc_info *proc_info = get_proc_info_by_uffd(uffd);
     pid_t pid = proc_info == NULL ? getpid() : proc_info->pid; /* PID */
-    void *mru_page = NULL;           /* address of most recently used page */
+
+    // queue variables
+    void *mru_page_queue[FIFO_SIZE]; // maintain LRU order, 0 = LRU
+    int naddrs = 0;
+    memset(mru_page_queue, 0, sizeof(mru_page_queue));
 
     printf(MAGENTA "fault_handler_thread spawned for "
            BLUE "PID = " YELLOW "%d" MAGENTA ", "
@@ -95,14 +99,14 @@ static void *fault_handler_thread(void *arg) {
 
         if (proc_info == NULL) {
             // parent case
-            if (mru_page != NULL)
-                madvise(mru_page, PAGE_SIZE, MADV_DONTNEED);
-            mru_page = (void *)uffdio_copy.dst;
+            void *evicted = enqueue((void *)uffdio_copy.dst, mru_page_queue, &naddrs);
+            if (evicted)
+                madvise(evicted, PAGE_SIZE, MADV_DONTNEED);
         } else {
             // child case
-            if (proc_info->mru_page != NULL)
-                infect(pid, proc_info->mru_page); // parasite invocation
-            proc_info->mru_page = (void *)uffdio_copy.dst;
+            void *evicted = enqueue((void *)uffdio_copy.dst, proc_info->mru_page_queue, &proc_info->naddrs);
+            if (evicted)
+                infect(pid, evicted); // (parasite) remote madvise invocation
         }
     }
 }

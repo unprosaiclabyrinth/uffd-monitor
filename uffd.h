@@ -39,7 +39,8 @@
 #define BRIGHT_CYAN "\033[96m"
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
-#define MAX_CHILDREN 1000
+#define MAX_CHILDREN 1000 // maximum number of children supported by this tool
+#define FIFO_SIZE 1 // maximum number of pages in the MRU page queue (= max code visibility)
 
 // Function pointer to hold the address of the original fork function
 // used in fork hijack
@@ -61,23 +62,27 @@ pid_t fork(void);
 void get_code_vma_bounds(unsigned long *, unsigned long *);
 void *setup_code_monitor(unsigned long, unsigned long);
 
-// SIGCGLD handler
-void sigchld_handler(int);
-void setup_sigchld_handler(void);
-
 // Parasite commands
 void print_vmsg(unsigned int, const char *, va_list);
 int infect(int, void *);
+
+// Page FIFO queue API
+void *enqueue(void *, void **, int *);
+void dump_queue(void **, int);
 
 // Structure and functions for logging
 struct child_proc_info {
     int pid;
     uffd_t uffd; // in parent
-    void *mru_page;
+    void *mru_page_queue[FIFO_SIZE];
+    int naddrs;
 };
 
 void add_log_entry(pid_t, uffd_t);
 struct child_proc_info *get_proc_info_by_uffd(uffd_t);
-struct child_proc_info *get_proc_info_by_pid(pid_t);
 void dump_log(void);
 void mark_as_removed(pid_t *, int);
+
+// SIGCGLD handler
+void sigchld_handler(int);
+void setup_sigchld_handler(void);
