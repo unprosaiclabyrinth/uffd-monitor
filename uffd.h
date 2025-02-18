@@ -1,3 +1,6 @@
+#ifndef UFFD_MONITOR_H
+#define UFFD_MONITOR_H
+
 // _GNU_SOURCE enables the RTLD_NEXT handle used in dlysm
 #define _GNU_SOURCE
 
@@ -40,7 +43,7 @@
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define MAX_CHILDREN 1000 // maximum number of children supported by this tool
-#define FIFO_SIZE 1 // maximum number of pages in the MRU page queue (= max code visibility)
+#define FIFO_SIZE (getenv("UFFD_MONITOR_SIZE") ? atoi(getenv("UFFD_MONITOR_SIZE")) : 1)
 
 // Function pointer to hold the address of the original fork function
 // used in fork hijack
@@ -48,6 +51,7 @@ typedef pid_t (*fork_t)(void);
 typedef int uffd_t;
 
 extern int PAGE_SIZE;
+// extern int FIFO_SIZE; // maximum number of pages in the MRU page queue (= max code visibility)
 extern unsigned long glob_new_vma;
 extern unsigned long glob_code_vma_start_addr;
 extern unsigned long glob_code_vma_end_addr;
@@ -72,9 +76,9 @@ void dump_queue(void **, int);
 
 // Structure and functions for logging
 struct child_proc_info {
-    int pid;
+    pid_t pid;
     uffd_t uffd; // in parent
-    void *mru_page_queue[FIFO_SIZE];
+    void *mru_page_queue[1024];
     int naddrs;
 };
 
@@ -86,3 +90,5 @@ void mark_as_removed(pid_t *, int);
 // SIGCGLD handler
 void sigchld_handler(int);
 void setup_sigchld_handler(void);
+
+#endif

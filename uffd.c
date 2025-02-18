@@ -1,6 +1,7 @@
 #include "uffd.h"
 
 int PAGE_SIZE;
+// int FIFO_SIZE = atoi(getenv("UFFD_FIFO_SIZE")); 
 unsigned long glob_new_vma;
 unsigned long glob_code_vma_start_addr;
 unsigned long glob_code_vma_end_addr;
@@ -41,13 +42,13 @@ static void *fault_handler_thread(void *arg) {
     pid_t pid = proc_info == NULL ? getpid() : proc_info->pid; /* PID */
 
     // queue variables
-    void *mru_page_queue[FIFO_SIZE]; // maintain LRU order, 0 = LRU
+    void *mru_page_queue[1024]; // maintain LRU order, 0 = LRU
     int naddrs = 0;
     memset(mru_page_queue, 0, sizeof(mru_page_queue));
 
     printf(MAGENTA "fault_handler_thread spawned for "
            BLUE "PID = " YELLOW "%d" MAGENTA ", "
-           BLUE "uffd = " YELLOW "%d\n" RESET, pid, uffd);
+           BLUE "uffd = " YELLOW "%d" RESET "\n", pid, uffd);
 
     /* Loop, handling incoming events on the userfaultfd
        file descriptor */
@@ -89,11 +90,10 @@ static void *fault_handler_thread(void *arg) {
 
         /* Display info about the page-fault event */
 
-        fprintf(stderr, MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%06d" MAGENTA "] "
-                        RESET "addr: " RED "%#llx" RESET ", "
-                        RESET "src: " GREEN "%#llx" RESET ", "
-                        RESET "code: " RESET "%lx\n" RESET, pid, uffd, ++fault_cnt,
-                        msg.arg.pagefault.address, uffdio_copy.src, *(long *)uffdio_copy.src);
+        // printf("%p\n", getenv("UFFD_LOG_DUMP"));
+        if (getenv("UFFD_LOG_DUMP")) {
+            fprintf(stderr, MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%06d" MAGENTA "] " RESET "addr: " RED "%#llx" RESET ", " RESET "src: " GREEN "%#llx" RESET ", " RESET "code: " RESET "%lx\n" RESET, pid, uffd, ++fault_cnt, msg.arg.pagefault.address, uffdio_copy.src, *(long *)uffdio_copy.src);
+        }
         
         /* Drop previously loaded code page to restrict visibility to one page */
 

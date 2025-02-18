@@ -18,7 +18,7 @@ run4: libuffd.so
 	sudo LD_PRELOAD=./$< ./test/t04
 
 run5: libuffd.so
-	sudo LD_PRELOAD=./$< ./test/t05/lighttpd-1.4.74/src/lighttpd \
+	sudo UFFD_MONITOR_SIZE=10 UFFD_LOG_DUMP=1 LD_PRELOAD=./$< ./test/t05/lighttpd-1.4.74/src/lighttpd \
 		-f ./test/t05/lighttpd-custom.conf -D
 	
 run6: libuffd.so
