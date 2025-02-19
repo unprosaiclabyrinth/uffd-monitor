@@ -30,6 +30,9 @@ libuffd.so: uffd.c vma.c fork.c queue.c log.c sigchld.c spy.c clean test
 test:
 	make -C test
 
+eval:
+	make -C eval
+
 clean:
 	@rm -f libuffd.so
 	make -C test clean
