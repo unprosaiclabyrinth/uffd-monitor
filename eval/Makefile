@@ -1,2 +1,6 @@
+SPECS := $(notdir $(wildcard specs/*))
+
 all:
-	for spec in specs; do make -C $spec; done
+	for spec in $(SPECS); do \
+		make -C specs/$$spec; \
+	done
