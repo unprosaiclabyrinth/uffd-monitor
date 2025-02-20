@@ -37,4 +37,4 @@ clean:
 	@rm -f libuffd.so
 	make -C test clean
 
-.PHONY: all run1 run2 run3 run4 run5 run6 test clean
+.PHONY: all run1 run2 run3 run4 run5 run6 test eval clean
