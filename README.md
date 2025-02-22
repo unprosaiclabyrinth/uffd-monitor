@@ -37,14 +37,22 @@ cat /proc/sys/vm/unprivileged_userfaultfd
 ```
 If set to 1, unprivileged users can run `userfaultfd` without `sudo`.
 
-# Tests
+## Demo
 
+You can see some simple applications in action using the following `make` targets:-
 ```bash
-make run1 # run test1: simple I/O
-make run2 # run test2: counter
-make run3 # run test3: epoll server
-make run4 # run test4: tiny web server with 2 child processes
+make run1 # run a simple I/O application
+make run2 # run a simple counter that keeps incrementing
 ```
+You can see a little bigger application, a tiny web epoll server, in action using the `make` target:-
+```bash
+make run4 # run a single-processed epoll server
+```
+You can see a real-world application, [lighttpd](https://www.lighttpd.net/), in action using the make target:-
+```bash
+make run5 # run lighttpd
+```
+You can configure the `UFFD_MONITOR_SIZE` and the `UFFD_LOG_DUMP` option in the Makefile.
 
 # Performance Evaluation
 
