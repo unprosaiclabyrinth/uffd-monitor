@@ -1,8 +1,8 @@
 # ![](images/title.png)
 
-# Overview
+Uffd-monitor is a userspace code execution monitor that reduces executable code in memory. It creates a sliding window over the code pages of the target application. The size of this sliding window can be configured. It helps in reducing the software attack surface of the target executables.
 
-Uffd-monitor is a userspace code execution monitor that reduces executable code in memory. It does this by copying the code pages of the target executable 
+![](images/diagram.png)
 
 # Get Started
 
