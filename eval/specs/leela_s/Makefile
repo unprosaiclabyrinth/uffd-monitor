@@ -1,7 +1,7 @@
 # Num pages = 51
 TEST_SIZES = 18 20 30 40
 OUTFILE = /tmp/eval.out
-COMMAND = ./leela_s_base.mytest-m64 test.sgf
+COMMAND = ./leela_s_base.uffd-eval-m64 test.sgf
 
 all:
 	@make -C ../../.. > /dev/null
