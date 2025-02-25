@@ -57,7 +57,7 @@ You can configure the `UFFD_MONITOR_SIZE` and the `UFFD_LOG_DUMP` options in the
 
 # Performance Evaluation
 
-Install SPEC CPU 2017 benchmark and source `shrc` (or equivalent), and follow the following steps:-
+Install SPEC CPU 2017 benchmark and source `shrc` (or equivalent). Make sure the environment variable `UFFD_MONITOR_HOME` has been set to `/path/to/uffd-monitor` and follow the following steps:-
 ```zsh
 # Copy the uffd-monitor config over to SPEC CPU
 cp $UFFD_MONITOR_HOME/eval/uffd-monitor-eval.cfg $SPEC/config
