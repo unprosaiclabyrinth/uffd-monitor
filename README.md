@@ -70,7 +70,7 @@ cp $UFFD_MONITOR_HOME/eval/uffd-monitor-eval.cfg $SPEC/config
 
 # Build the nexessary binaries
 cd $SPEC
-runcpu --action=build --config=uffd-monitor-eval --size=test intspeed
+runcpu --action=build --config=uffd-monitor-eval --size=test leela_s mcf_s deepsjeng_s xz_s
 
 # Copy the nexessary binaries over
 go leela_s # shrc (or equivalent) must be sourced
