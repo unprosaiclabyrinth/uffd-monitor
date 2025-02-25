@@ -1,6 +1,6 @@
 CC		= gcc
 CFLAGS	= -g -O2
-SRC		= t01 t02 t03 t04
+SRC		= t01 t02 t03 t04 t07
 
 all: $(SRC) t05 t06
 
@@ -22,8 +22,11 @@ t05:
 t06:
 	make -C t06
 
+t07: t07.c
+	$(CC) $(CFLAGS) -pthread -o $@ $<
+
 clean:
 	@rm -f $(SRC)
 	make -C t06 clean
 
-.PHONY: all t01 t02 t03 t04 t06 clean
+.PHONY: all t01 t02 t03 t04 t06 t07 clean
