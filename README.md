@@ -74,19 +74,19 @@ runcpu --action=build --config=uffd-monitor-eval --size=test leela_s mcf_s deeps
 
 # Copy the nexessary binaries over
 go leela_s # shrc (or equivalent) must be sourced
-cd build/build_base_test_uffd-monitor-eval-m64.0000
+cd build/build_base_uffd-monitor-eval-m64.0000
 cp leela_s $UFFD_MONITOR_HOME/eval/specs/leela_s
 
 go mcf_s
-cd build/build_base_test_uffd-monitor-eval-m64.0000
+cd build/build_base_uffd-monitor-eval-m64.0000
 cp mcf_s $UFFD_MONITOR_HOME/eval/specs/mcf_s
 
 go deepsjeng_s
-cd build/build_base_test_uffd-monitor-eval-m64.0000
+cd build/build_base_uffd-monitor-eval-m64.0000
 cp deepsjeng_s $UFFD_MONITOR_HOME/eval/specs/deepsjeng_s
 
 go xz_s
-cd build/build_base_test_uffd-monitor-eval-m64.0000
+cd build/build_base_uffd-monitor-eval-m64.0000
 cp xz_s $UFFD_MONITOR_HOME/eval/specs/xz_s
 
 cd $UFFD_MONITOR_HOME
