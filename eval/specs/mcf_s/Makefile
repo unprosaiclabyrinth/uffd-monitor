@@ -1,5 +1,5 @@
 # Num pages = 5
-TEST_SIZES = 1
+TEST_SIZES = 2 3 4
 OUTFILE = /tmp/eval.out
 COMMAND = ./mcf_s inp.in
 
