@@ -3,3 +3,5 @@ cscope.out
 *.cmd
 eval/err.txt
 eval/eval.csv
+test/t07
+evalscript.sh
