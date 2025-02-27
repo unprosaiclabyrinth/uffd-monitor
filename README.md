@@ -98,7 +98,7 @@ The results should be written to the file `/tmp/eval.out`. **Note that the scrip
 
 The variable *relative monitor size* used in the performance evaluation refers to the size of the sliding window over the code pages of the binary in terms of number of pages **as a percentage of the total number of code pages**. Each data point in each plot is annotated with the absolute monitor size used in terms of number of pages. If the annotation corresponds to a 100% relative monitor size, then it is the total number of code pages.
 
-## For SPEC CPU benchmarks
+### For SPEC CPU benchmarks
 
 The performance of uffd-monitor is evaluated on four SPEC CPU integer computation speed benchmarks: deepsjeng_s, leela_s, xz_s, and mcf_s. The following plots show the performance of uffd-monitor in terms of execution time in seconds vs. relative monitor size.
 ![](images/deepsjeng.png)
@@ -106,7 +106,7 @@ The performance of uffd-monitor is evaluated on four SPEC CPU integer computatio
 ![](images/xz.png)
 ![](images/mcf.png)
 
-## For lighttpd server
+### For lighttpd server
 
 The performance of uffd-monitor is evaluated using the lighttpd web server in terms of time per request in milliseconds vs. relative monitor size.
 ![](images/lighttpd.png)
