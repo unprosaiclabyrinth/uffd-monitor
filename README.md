@@ -96,17 +96,21 @@ The results should be written to the file `/tmp/eval.out`. **Note that the scrip
 
 ## Results
 
-The variable *relative monitor size* used in the performance evaluation refers to the size of the sliding window over the code pages of the binary in terms of number of pages **as a percentage of the total number of code pages**. Each data point in each plot is annotated with the absolute monitor size used in terms of number of pages. If the annotation corresponds to a 100% relative monitor size, then it is the total number of code pages.
+The variable **relative monitor size** used in the performance evaluation refers to the size of the sliding window over the code pages of the binary in terms of number of pages **as a percentage of the total number of code pages**. Each data point in each plot is annotated with the absolute monitor size in terms of number of pages. If the annotation corresponds to a 100% relative monitor size, then it is the total number of code pages.
 
 ### For SPEC CPU benchmarks
 
 The performance of uffd-monitor is evaluated on four SPEC CPU integer computation speed benchmarks: deepsjeng_s, leela_s, xz_s, and mcf_s. The following plots show the performance of uffd-monitor in terms of execution time in seconds vs. relative monitor size.
+
 ![](images/deepsjeng.png)
 ![](images/leela.png)
 ![](images/xz.png)
 ![](images/mcf.png)
 
+The plots show that the trend of execution time as compared to monitor size largely depends on the application. Among the SPEC CPU benchmarks used for evaluation, on the one hand, leela_s shows significant performance overhead until an absolute monitor size of 18, after which there is a sharp decline and steadiness. On the other hand, deepsjeng_s shows a systematic decline of execution time with increasing absolute monitor size. One reason for this could be that most of the execution of leela_s would be happening in about 20 pages, and constant page faults due to a strictly lesser monitor size account for significant performance overhead. One general trend that can be observed is that the execution time attains a steady state as the relative monitor size tends to 100%. Also, an absolute monitor size of 1 or 2 generally results in significant performance overhead.
+
 ### For lighttpd server
 
 The performance of uffd-monitor is evaluated using the lighttpd web server in terms of time per request in milliseconds vs. relative monitor size.
+
 ![](images/lighttpd.png)
