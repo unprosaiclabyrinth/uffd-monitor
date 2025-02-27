@@ -1,7 +1,7 @@
 # Num pages = 5
 TEST_SIZES = 2
 OUTFILE = /tmp/eval.out
-COMMAND = mcf_s inp.in
+COMMAND = ./mcf_s inp.in
 
 all:
 	@make -C ../../.. > /dev/null
