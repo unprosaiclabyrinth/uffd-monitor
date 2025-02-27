@@ -16,7 +16,7 @@ void get_code_vma_bounds(unsigned long *code_vma_start_addr,
 
     printf(BLUE "                PID: " YELLOW "%d\n" RESET , getpid());
     printf(BLUE "Code VMA start addr: " RESET "%#lx\n", *code_vma_start_addr);
-    printf("  Code VMA end addr: %#lx\n", *code_vma_end_addr);
+    // printf("  Code VMA end addr: %#lx\n", *code_vma_end_addr);
 }
 
 /*
@@ -49,7 +49,9 @@ void *setup_code_monitor(unsigned long code_vma_start_addr,
     memcpy(old_vma, new_vma, len);
     mprotect(old_vma, len, PROT_READ | PROT_EXEC);
 
+    double monitor_size_perc = (double)FIFO_SIZE * PAGE_SIZE * 100 / len;
     printf(BLUE "            # Pages: " YELLOW "%ld" RESET " (%ld / %d)\n", len/PAGE_SIZE, len, PAGE_SIZE);
+    printf(BLUE "  Code monitor size: " YELLOW "%d -> %.2f%%" RESET "\n", FIFO_SIZE, monitor_size_perc);
     printf(BLUE "  Code monitor addr: " RESET "%p\n\n", new_vma);
     // Drop all code pages
     madvise(old_vma, len, MADV_DONTNEED);
