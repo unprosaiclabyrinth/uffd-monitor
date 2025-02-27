@@ -95,3 +95,19 @@ make eval
 The results should be written to the file `/tmp/eval.out`. **Note that the script *appends* to the output file and so you should delete the file explicitly before each run for clean output.** This output file path can be configured in the Makefiles of the individual specs. Navigate to the desired spec in `eval/specs` and update the `OUTFILE` field. Similarly, the window sizes for which the evaluation is run can be configured in the individual spec Makefiles. Navigate to the desired spec in `eval/specs` and update the `TEST_SIZES` field.
 
 ## Results
+
+The variable *monitor size* used in the performance evaluation refers to the size of the sliding window over the code pages of the binary in terms of number of pages as a percentage of the total number of code pages.
+
+## For SPEC CPU benchmarks
+
+The performance of uffd-monitor is evaluated on four SPEC CPU integer computation speed benchmarks: deepsjeng_s, leela_s, xz_s, and mcf_s. The following plots show the performance of uffd-monitor in terms of execution time in seconds vs. monitor size.
+![](images/deepsjeng.png)
+![](images/leela.png)
+![](images/xz.png)
+![](images/mcf.png)
+
+
+## For lighttpd server
+
+The performacnce of uffd-monitor is evaluated using the lighttpd web server in terms of time per request in milliseconds vs. monitor size.
+![](images/lighttpd.png)
