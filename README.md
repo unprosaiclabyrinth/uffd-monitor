@@ -70,7 +70,7 @@ cp $UFFD_MONITOR_HOME/eval/uffd-monitor-eval.cfg $SPEC/config
 
 # Build the nexessary binaries
 cd $SPEC
-runcpu --action=build --config=uffd-monitor-eval --size=test leela_s mcf_s deepsjeng_s xz_s
+runcpu --action=build --config=uffd-monitor-eval --size=test leela_s mcf_s deepsjeng_s xz_s specrand_is
 BUILD_DIR=build/build_base_uffd-monitor-eval-m64.0000
 
 # Copy the necessary binaries over
@@ -86,9 +86,12 @@ cp $BUILD_DIR/deepsjeng_s $UFFD_MONITOR_HOME/eval/specs/deepsjeng_s
 go xz_s
 cp $BUILD_DIR$/xz_s $UFFD_MONITOR_HOME/eval/specs/xz_s
 
+go specrand_is
+cp $BUILD_DIR/specrand_is $UFFD_MONITOR_HOME/eval/specs/specrand_is
+
 cd $UFFD_MONITOR_HOME
 make eval
 ```
-The results should be written to the file `/tmp/eval.out`. This output file path can be configured in the Makefiles of the individual specs. Navigate to the desired spec in `eval/specs` and update the `OUTFILE` field. Similarly, the window sizes for which the evaluation is run can be configured in the individual spec Makefiles. Navigate to the desired spec in `eval/specs` and update the `TEST_SIZES` field.
+The results should be written to the file `/tmp/eval.out`. **Note that the script *appends* to the output file and so you should delete the file explicitly before each run for clean output.** This output file path can be configured in the Makefiles of the individual specs. Navigate to the desired spec in `eval/specs` and update the `OUTFILE` field. Similarly, the window sizes for which the evaluation is run can be configured in the individual spec Makefiles. Navigate to the desired spec in `eval/specs` and update the `TEST_SIZES` field.
 
 ## Results
