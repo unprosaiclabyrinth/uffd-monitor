@@ -4,7 +4,6 @@ OUTFILE = /tmp/eval.out
 COMMAND = ./specrand_is 324342 24239
 
 all:
-	@make -C ../../.. > /dev/null
 	@cp ../../../libuffd.so .
 
 	@echo "+-----------------------+" >> $(OUTFILE)

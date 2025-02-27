@@ -4,7 +4,6 @@ OUTFILE = /tmp/eval.out
 COMMAND = ./leela_s test.sgf
 
 all:
-	@make -C ../../.. > /dev/null
 	@cp ../../../libuffd.so .
 
 	@echo "+---------------------+" >> $(OUTFILE)

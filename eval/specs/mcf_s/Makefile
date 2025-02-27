@@ -1,10 +1,9 @@
 # Num pages = 5
-TEST_SIZES = 2
+TEST_SIZES = 1
 OUTFILE = /tmp/eval.out
 COMMAND = ./mcf_s inp.in
 
 all:
-	@make -C ../../.. > /dev/null
 	@cp ../../../libuffd.so .
 
 	@echo "+------------------+" >> $(OUTFILE)

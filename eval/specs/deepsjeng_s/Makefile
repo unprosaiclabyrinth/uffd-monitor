@@ -4,7 +4,6 @@ OUTFILE = /tmp/eval.out
 COMMAND = ./deepsjeng_s test.txt
 
 all:
-	@make -C ../../.. > /dev/null
 	@cp ../../../libuffd.so .
 
 	@echo "+-------------------------+" >> $(OUTFILE)
