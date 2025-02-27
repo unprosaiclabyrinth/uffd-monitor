@@ -91,7 +91,7 @@ static void *fault_handler_thread(void *arg) {
         /* Display info about the page-fault event */
 
         // printf("%p\n", getenv("UFFD_LOG_DUMP"));
-        if (getenv("UFFD_LOG_DUMP")) {
+        if (getenv("UFFD_LOG_DUMP") && atoi(getenv("UFFD_LOG_DUMP"))) {
             fprintf(stderr, MAGENTA "[" YELLOW "%6d" MAGENTA "/" YELLOW "%d" MAGENTA "/" CYAN "%06d" MAGENTA "] " RESET "addr: " RED "%#llx" RESET ", " RESET "src: " GREEN "%#llx" RESET ", " RESET "code: " RESET "%lx\n" RESET, pid, uffd, ++fault_cnt, msg.arg.pagefault.address, uffdio_copy.src, *(long *)uffdio_copy.src);
         }
         
