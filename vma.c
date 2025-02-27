@@ -53,6 +53,7 @@ void *setup_code_monitor(unsigned long code_vma_start_addr,
     printf(BLUE "            # Pages: " YELLOW "%ld" RESET " (%ld / %d)\n", len/PAGE_SIZE, len, PAGE_SIZE);
     printf(BLUE "  Code monitor size: " YELLOW "%d -> %.2f%%" RESET "\n", FIFO_SIZE, monitor_size_perc);
     printf(BLUE "  Code monitor addr: " RESET "%p\n\n", new_vma);
+
     // Drop all code pages
     madvise(old_vma, len, MADV_DONTNEED);
 
