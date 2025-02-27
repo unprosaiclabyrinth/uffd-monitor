@@ -109,7 +109,7 @@ The performance of uffd-monitor is evaluated on four SPEC CPU integer computatio
 
 The plots show that the trend of execution time as compared to monitor size largely depends on the application. Among the SPEC CPU benchmarks used for evaluation, on the one hand, leela_s shows significant performance overhead until an absolute monitor size of 18, after which there is a sharp decline and steadiness. On the other hand, deepsjeng_s shows a systematic decline of execution time with increasing absolute monitor size. One reason for this could be that most of the execution of leela_s would be happening in about 20 pages, and constant page faults due to a strictly lesser monitor size account for significant performance overhead. One general trend that can be observed is that the execution time attains a steady state as the relative monitor size tends to 100%. Also, an absolute monitor size of 1 or 2 generally results in significant performance overhead.
 
-### For lighttpd server
+### For the lighttpd server
 
 The performance of uffd-monitor is evaluated using the lighttpd web server in terms of time per request in milliseconds vs. relative monitor size.
 
